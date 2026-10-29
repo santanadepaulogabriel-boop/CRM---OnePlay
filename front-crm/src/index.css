@@ -1,3 +1,90 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  html {
+    color-scheme: dark;
+    background-color: #030509;
+    color: #f4f4f5;
+  }
+
+  body {
+    background-color: #030509;
+    background-image:
+      radial-gradient(circle at 12% 0%, rgba(34, 211, 238, 0.07), transparent 38%),
+      radial-gradient(circle at 88% 8%, rgba(56, 189, 248, 0.05), transparent 36%);
+    background-attachment: fixed;
+    color: #f4f4f5;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  /* Custom hyper-clean glass scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #030509;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 9999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(34, 211, 238, 0.35);
+  }
+}
+
+@layer utilities {
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .glass-card {
+    @apply bg-[#06080d]/60 backdrop-blur-2xl border border-white/5 shadow-[0_8px_32px_0_rgba(0, 0, 0, 0.4)];
+  }
+
+  .neon-hover {
+    @apply transition-all duration-300 hover:-translate-y-1 hover:border-cyan-500/30 hover:shadow-[0_0_20px_rgba(34, 211, 238, 0.2)];
+  }
+
+  .animate-in {
+    animation-duration: 180ms;
+    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+    animation-fill-mode: both;
+  }
+
+  .fade-in {
+    animation-name: agyFadeIn;
+  }
+
+  .zoom-in-95 {
+    animation-name: agyZoomIn95;
+  }
+}
+
+@keyframes agyFadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes agyZoomIn95 {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
