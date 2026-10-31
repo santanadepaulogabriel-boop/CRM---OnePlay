@@ -216,7 +216,7 @@ export function LojaCreditos({ isOpen: isOpenProp, onClose: onCloseProp }: LojaC
         role="dialog"
         aria-modal="true"
         aria-labelledby="loja-creditos-title"
-        className="relative my-auto w-full max-w-2xl rounded-2xl border border-white/10 bg-[#06080d]/90 backdrop-blur-2xl text-zinc-100 shadow-2xl shadow-black/80 animate-in zoom-in-95 duration-200 overflow-hidden"
+        className="glass-modal relative my-auto w-full max-w-2xl rounded-2xl text-zinc-100 animate-in zoom-in-95 duration-200 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Ambient Glows sutis de profundidade */}
@@ -276,10 +276,10 @@ export function LojaCreditos({ isOpen: isOpenProp, onClose: onCloseProp }: LojaC
               return (
                 <div
                   key={pacote.id}
-                  className={`group relative flex flex-col justify-between rounded-2xl bg-[#06080d]/90 backdrop-blur-2xl p-4 transition-all duration-300 hover:-translate-y-1 overflow-hidden ${
+                  className={`glass-card group relative flex flex-col justify-between rounded-2xl p-4 transition-all duration-300 hover:-translate-y-1 overflow-hidden ${
                     isPlanoAnual
-                      ? 'border border-cyan-500/50 shadow-[0_0_30px_rgba(6,182,212,0.15)] hover:border-cyan-400/80 hover:shadow-[0_0_36px_rgba(6,182,212,0.25)]'
-                      : 'border border-white/10 shadow-2xl shadow-black/80 hover:border-cyan-500/30'
+                      ? '!border-cyan-500/45 shadow-[0_0_30px_rgba(6,182,212,0.16)] hover:!border-cyan-400/75 hover:shadow-[0_0_36px_rgba(6,182,212,0.25)]'
+                      : 'neon-hover'
                   }`}
                 >
                   {/* Glow interno dedicado no Plano de 12 Meses */}

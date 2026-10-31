@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import { Navigate } from 'react-router-dom'
 import {
   Activity,
   AlertCircle,
@@ -36,7 +35,11 @@ import {
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
 import { useCrmStore } from '../stores/useCrmStore'
-import { getSafeHomeRoute, isMasterUser } from '../lib/multiTenant'
+import {
+  extractMissingColumnName,
+  isMasterUser,
+  isMissingColumnError,
+} from '../lib/multiTenant'
 import { EmptyState, StatusBadge } from '../components/ui/TierOnePrimitives'
 
 const SQL_MIGRATION = `-- Execute este comando no SQL Editor do seu Supabase:
@@ -69,7 +72,7 @@ const secondaryButton =
   'inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs font-medium text-zinc-200 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-500/30 hover:text-zinc-100 hover:shadow-[0_0_20px_rgba(34,211,238,0.2)] disabled:opacity-50 disabled:hover:translate-y-0'
 
 export default function Configuracoes() {
-  const { usuario, loading: loadingAuth } = useAuth()
+  const { usuario } = useAuth()
   const isMaster = isMasterUser(usuario)
   const toast = useToast()
   const [abaAtiva, setAbaAtiva] = useState<'servidores' | 'api' | 'regras' | 'seguranca'>(
@@ -81,31 +84,48 @@ export default function Configuracoes() {
   const [gerandoApiKey, setGerandoApiKey] = useState(false)
   const [mostrarToken, setMostrarToken] = useState(false)
 
-  const carregarApiKey = useCallback(async () => {
-    if (!usuario?.id || !isMaster) return
-    setLoadingApiKey(true)
-    try {
-      const { data, error } = await supabase
-        .from('api_keys')
-        .select('*')
-        .or(`tenant_id.eq.${usuario.id},user_id.eq.${usuario.id}`)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
+  const ownerAuthId = usuario?.authId || usuario?.id || null
 
-      if (!error && data && data.token) {
-        setApiKeyToken(String(data.token))
+  const carregarApiKey = useCallback(async () => {
+    if (!usuario?.id) return
+    setLoadingApiKey(true)
+    const localStorageKey = `oneplay_apikey_${usuario.id}`
+    try {
+      const candidateCols = ['user_id', 'tenant_id'] as const
+      let foundToken: string | null = null
+
+      for (const col of candidateCols) {
+        const targetId = ownerAuthId || usuario.id
+        const { data, error } = await supabase
+          .from('api_keys')
+          .select('*')
+          .eq(col, targetId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (!error && data && data.token) {
+          foundToken = String(data.token)
+          break
+        }
+        if (error && !isMissingColumnError(error, col)) {
+          break
+        }
+      }
+
+      if (foundToken) {
+        setApiKeyToken(foundToken)
       } else {
-        const localKey = localStorage.getItem(`oneplay_apikey_${usuario.id}`)
+        const localKey = localStorage.getItem(localStorageKey)
         setApiKeyToken(localKey || null)
       }
     } catch {
-      const localKey = localStorage.getItem(`oneplay_apikey_${usuario.id}`)
-      if (localKey) setApiKeyToken(localKey)
+      const localKey = localStorage.getItem(localStorageKey)
+      setApiKeyToken(localKey || null)
     } finally {
       setLoadingApiKey(false)
     }
-  }, [usuario?.id, isMaster])
+  }, [usuario?.id, ownerAuthId])
 
   useEffect(() => {
     void carregarApiKey()
@@ -119,17 +139,25 @@ export default function Configuracoes() {
         .map((b) => b.toString(16).padStart(2, '0'))
         .join('')
       const novoToken = `op_live_${randomHex}`
+      const targetId = ownerAuthId || usuario.id
 
-      await supabase
-        .from('api_keys')
-        .insert({
-          tenant_id: usuario.id,
-          user_id: usuario.id,
-          nome: 'Token Único OnePlay CRM',
-          token: novoToken,
-        })
-        .select()
-        .single()
+      const workingPayload: Record<string, unknown> = {
+        tenant_id: targetId,
+        user_id: targetId,
+        nome: isMaster ? 'Token Único OnePlay CRM' : `Token Parceiro - ${usuario.nome}`,
+        token: novoToken,
+      }
+
+      for (let attempt = 0; attempt < 4; attempt++) {
+        const res = await supabase.from('api_keys').insert(workingPayload).select().single()
+        if (!res.error) break
+        const missingCol = extractMissingColumnName(res.error)
+        if (missingCol && missingCol in workingPayload) {
+          delete workingPayload[missingCol]
+          continue
+        }
+        break
+      }
 
       setApiKeyToken(novoToken)
       localStorage.setItem(`oneplay_apikey_${usuario.id}`, novoToken)
@@ -168,17 +196,26 @@ export default function Configuracoes() {
   const [senhaError, setSenhaError] = useState<string | null>(null)
   const [senhaFeedback, setSenhaFeedback] = useState<string | null>(null)
 
+  const DEFAULT_COBRANCA_MSG =
+    'Olá, [Nome]! Constatamos que sua mensalidade OnePlay venceu em [Data]. Para reativar seu acesso instantaneamente e não perder sua programação, realize a renovação via chave PIX. Deseja receber a chave agora?'
+
+  const cobrancaStorageKey =
+    !isMaster && usuario?.id
+      ? `oneplay_cobranca_template_${usuario.id}`
+      : 'oneplay_cobranca_template'
+
   const [msgCobranca, setMsgCobranca] = useState<string>(() => {
-    return (
-      localStorage.getItem('oneplay_cobranca_template') ||
-      'Olá, [Nome]! Constatamos que sua mensalidade OnePlay venceu em [Data]. Para reativar seu acesso instantaneamente e não perder sua programação, realize a renovação via chave PIX. Deseja receber a chave agora?'
-    )
+    return localStorage.getItem(cobrancaStorageKey) || DEFAULT_COBRANCA_MSG
   })
   const [cobrancaFeedback, setCobrancaFeedback] = useState<string | null>(null)
 
+  useEffect(() => {
+    setMsgCobranca(localStorage.getItem(cobrancaStorageKey) || DEFAULT_COBRANCA_MSG)
+  }, [cobrancaStorageKey])
+
   function handleSalvarMsgCobranca(e: FormEvent) {
     e.preventDefault()
-    localStorage.setItem('oneplay_cobranca_template', msgCobranca)
+    localStorage.setItem(cobrancaStorageKey, msgCobranca)
     setCobrancaFeedback('Mensagem de cobrança do WhatsApp salva com sucesso!')
     setTimeout(() => setCobrancaFeedback(null), 3500)
   }
@@ -226,18 +263,19 @@ export default function Configuracoes() {
   }
 
   const carregarServidores = useCallback(async () => {
-    if (!isMaster) {
+    if (!usuario) {
+      setServidores([])
       setLoading(false)
       return
     }
     setLoading(true)
-    const res = await listarServidores('master', usuario?.id)
+    const res = await listarServidores(usuario.role, usuario.id, usuario.authId)
     setServidores(res.servidores)
     useCrmStore.getState().setServidores(res.servidores)
     setFromDatabase(res.fromDatabase)
     setDbError(res.error)
     setLoading(false)
-  }, [usuario, isMaster])
+  }, [usuario])
 
   useEffect(() => {
     void carregarServidores()
@@ -253,12 +291,15 @@ export default function Configuracoes() {
     setSalvando(true)
     setModalError(null)
 
-    const userId = usuario?.id || useCrmStore.getState().user?.id
+    const userId = usuario?.id || useCrmStore.getState().user?.id || null
+    const tenantOwnerId = usuario?.authId || userId
     const res = await criarServidor({
       nome: novoNome.trim(),
       url: novaUrl.trim(),
       status: 'ativo',
-      tenant_id: userId ?? null,
+      tenant_id: tenantOwnerId,
+      reseller_id: userId,
+      vendedor_id: tenantOwnerId,
     })
 
     setSalvando(false)
@@ -281,7 +322,8 @@ export default function Configuracoes() {
     setServidores((list) =>
       list.map((s) => (s.id === srv.id ? { ...s, status: novoStatus } : s))
     )
-    await atualizarStatusServidor(srv.id, novoStatus)
+    const tenantScope = !isMaster ? (usuario?.authId || usuario?.id || null) : null
+    await atualizarStatusServidor(srv.id, novoStatus, tenantScope)
     setFeedback(`Servidor ${srv.nome} alterado para ${novoStatus}`)
     setTimeout(() => setFeedback(null), 3000)
   }
@@ -306,10 +348,6 @@ export default function Configuracoes() {
   }
 
   const ativosCount = (servidores || []).filter((s) => s?.status === 'ativo').length
-
-  if (!loadingAuth && usuario && !isMaster) {
-    return <Navigate to={getSafeHomeRoute(usuario)} replace />
-  }
 
   return (
     <div className="relative flex flex-1 min-w-0 flex-col w-full">
@@ -433,7 +471,7 @@ export default function Configuracoes() {
             </div>
           )}
 
-          {!fromDatabase && abaAtiva === 'servidores' && (
+          {!fromDatabase && isMaster && abaAtiva === 'servidores' && (
             <div className={`${glassPanel} border-amber-500/30 p-5`}>
               <div className="pointer-events-none absolute -top-12 -right-12 h-36 w-36 rounded-full bg-radial from-amber-500/15 to-transparent" />
               <div className="relative flex flex-col sm:flex-row sm:items-start justify-between gap-4">
@@ -448,7 +486,7 @@ export default function Configuracoes() {
                       script SQL abaixo no editor do Supabase:
                     </p>
                     {dbError && (
-                      <p className="mt-2 font-mono text-[11px] text-amber-200/90 bg-[#030509]/70 p-2 rounded-lg border border-amber-500/20">
+                      <p className="mt-2 font-mono text-[11px] text-amber-200/90 bg-black/40 p-2 rounded-lg border border-amber-500/20">
                         {dbError}
                       </p>
                     )}
@@ -541,10 +579,8 @@ export default function Configuracoes() {
                     return (
                       <article
                         key={srv.id}
-                        className={`group relative overflow-hidden rounded-2xl border p-4 flex flex-col justify-between backdrop-blur-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] transition-all duration-300 hover:-translate-y-1 hover:border-cyan-500/30 hover:shadow-[0_0_20px_rgba(34,211,238,0.2)] ${
-                          isAtivo
-                            ? 'border-white/5 bg-[#06080d]/60'
-                            : 'border-white/5 bg-[#06080d]/40 opacity-70'
+                        className={`glass-card neon-hover group relative overflow-hidden rounded-2xl p-4 flex flex-col justify-between transition-all duration-300 ${
+                          isAtivo ? '' : 'opacity-70'
                         }`}
                       >
                         <div className="pointer-events-none absolute -top-10 -right-10 h-28 w-28 rounded-full bg-radial from-cyan-500/10 to-transparent" />
@@ -560,7 +596,7 @@ export default function Configuracoes() {
                             />
                           </div>
 
-                          <div className="flex items-center gap-1.5 text-xs text-zinc-300 font-mono break-all bg-[#030509]/70 px-2.5 py-2 rounded-xl border border-white/5 mb-3">
+                          <div className="flex items-center gap-1.5 text-xs text-zinc-300 font-mono break-all bg-black/35 px-2.5 py-2 rounded-xl border border-white/[0.08] mb-3">
                             <Globe className="h-3.5 w-3.5 text-cyan-400/80 shrink-0" />
                             <span>{srv.url || 'URL não informada'}</span>
                           </div>
@@ -656,7 +692,7 @@ export default function Configuracoes() {
                 />
               ) : (
                 <div className="relative space-y-5">
-                  <div className="relative overflow-hidden rounded-2xl border border-white/5 bg-[#030509]/50 p-5 space-y-4">
+                  <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.025] p-5 space-y-4">
                     <div className="pointer-events-none absolute -top-10 -right-10 h-28 w-28 rounded-full bg-radial from-cyan-500/10 to-transparent" />
 
                     <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -682,7 +718,7 @@ export default function Configuracoes() {
                     </div>
 
                     <div className="relative flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-                      <div className="flex-1 flex items-center justify-between rounded-xl border border-white/10 bg-[#030509]/80 px-4 py-2.5 font-mono text-xs text-zinc-100">
+                      <div className="flex-1 flex items-center justify-between rounded-xl border border-white/10 bg-black/40 px-4 py-2.5 font-mono text-xs text-zinc-100">
                         <span className="select-all break-all">
                           {mostrarToken
                             ? apiKeyToken
@@ -712,13 +748,13 @@ export default function Configuracoes() {
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-white/5 bg-[#030509]/50 p-5 space-y-3">
+                  <div className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-5 space-y-3">
                     <div className="flex items-center gap-2 text-xs font-medium text-zinc-200">
                       <Code2 className="h-4 w-4 text-cyan-400" />
                       <span>Exemplo de Requisição HTTP POST</span>
                     </div>
 
-                    <div className="rounded-xl bg-[#030509]/90 border border-white/5 p-4 text-xs font-mono text-zinc-300 space-y-1.5 overflow-x-auto">
+                    <div className="rounded-xl bg-black/45 border border-white/[0.08] p-4 text-xs font-mono text-zinc-300 space-y-1.5 overflow-x-auto">
                       <div className="text-cyan-400">POST https://crm.oneplay.live/api/v1/leads</div>
                       <div className="text-zinc-400">
                         Authorization: Bearer {apiKeyToken.slice(0, 6)}...{apiKeyToken.slice(-4)}
@@ -750,7 +786,7 @@ export default function Configuracoes() {
                 </div>
 
                 <div className="relative grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="rounded-2xl border border-white/5 bg-[#030509]/50 p-4 space-y-2.5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-500/30 hover:shadow-[0_0_20px_rgba(34,211,238,0.2)]">
+                  <div className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-4 space-y-2.5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-500/30 hover:shadow-[0_0_20px_rgba(34,211,238,0.2)]">
                     <div className="flex items-center gap-2">
                       <Zap className="h-4 w-4 text-amber-400" />
                       <h3 className="text-xs font-semibold text-zinc-100">Testes Express</h3>
@@ -758,12 +794,12 @@ export default function Configuracoes() {
                     <p className="text-xs text-zinc-400 leading-relaxed">
                       Calculados somando 4h ou 24h ao horário oficial no momento da ativação.
                     </p>
-                    <div className="rounded-lg bg-[#030509]/80 border border-white/5 px-2.5 py-1.5 text-[11px] text-cyan-300 font-mono tabular-nums">
+                    <div className="rounded-lg bg-black/40 border border-white/[0.08] px-2.5 py-1.5 text-[11px] text-cyan-300 font-mono tabular-nums">
                       NOW() + INTERVAL 'N hours'
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-white/5 bg-[#030509]/50 p-4 space-y-2.5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-500/30 hover:shadow-[0_0_20px_rgba(34,211,238,0.2)]">
+                  <div className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-4 space-y-2.5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-500/30 hover:shadow-[0_0_20px_rgba(34,211,238,0.2)]">
                     <div className="flex items-center gap-2">
                       <Activity className="h-4 w-4 text-cyan-400" />
                       <h3 className="text-xs font-semibold text-zinc-100">Janela de Follow-up</h3>
@@ -771,12 +807,12 @@ export default function Configuracoes() {
                     <p className="text-xs text-zinc-400 leading-relaxed">
                       Oportunidades sem movimentação há mais de 24 horas entram em fila prioritária.
                     </p>
-                    <div className="rounded-lg bg-[#030509]/80 border border-white/5 px-2.5 py-1.5 text-[11px] text-cyan-300 font-mono tabular-nums">
+                    <div className="rounded-lg bg-black/40 border border-white/[0.08] px-2.5 py-1.5 text-[11px] text-cyan-300 font-mono tabular-nums">
                       tolerancia = 24 horas
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-white/5 bg-[#030509]/50 p-4 space-y-2.5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-500/30 hover:shadow-[0_0_20px_rgba(34,211,238,0.2)]">
+                  <div className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-4 space-y-2.5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-500/30 hover:shadow-[0_0_20px_rgba(34,211,238,0.2)]">
                     <div className="flex items-center gap-2">
                       <Clock className="h-4 w-4 text-violet-400" />
                       <h3 className="text-xs font-semibold text-zinc-100">SLA de Suporte</h3>
@@ -784,7 +820,7 @@ export default function Configuracoes() {
                     <p className="text-xs text-zinc-400 leading-relaxed">
                       Chamados na coluna Suporte Técnico operam com meta de resolução de até 8 horas.
                     </p>
-                    <div className="rounded-lg bg-[#030509]/80 border border-white/5 px-2.5 py-1.5 text-[11px] text-cyan-300 font-mono tabular-nums">
+                    <div className="rounded-lg bg-black/40 border border-white/[0.08] px-2.5 py-1.5 text-[11px] text-cyan-300 font-mono tabular-nums">
                       sla_suporte = 8 horas
                     </div>
                   </div>
@@ -802,7 +838,7 @@ export default function Configuracoes() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="rounded-2xl border border-white/5 bg-[#030509]/50 p-4 space-y-2.5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-500/30 hover:shadow-[0_0_20px_rgba(34,211,238,0.2)]">
+                  <div className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-4 space-y-2.5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-500/30 hover:shadow-[0_0_20px_rgba(34,211,238,0.2)]">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-medium text-zinc-100">Follow-up Pós-Teste</span>
                       <StatusBadge variant="neutral" label="Funil" showDot={false} />
@@ -812,7 +848,7 @@ export default function Configuracoes() {
                     </p>
                   </div>
 
-                  <div className="rounded-2xl border border-white/5 bg-[#030509]/50 p-4 space-y-2.5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-500/30 hover:shadow-[0_0_20px_rgba(34,211,238,0.2)]">
+                  <div className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-4 space-y-2.5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-500/30 hover:shadow-[0_0_20px_rgba(34,211,238,0.2)]">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-medium text-zinc-100">Aviso de Vencimento</span>
                       <StatusBadge variant="vencendo" label="Alerta" />
@@ -822,7 +858,7 @@ export default function Configuracoes() {
                     </p>
                   </div>
 
-                  <div className="rounded-2xl border border-white/5 bg-[#030509]/50 p-4 space-y-2.5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-500/30 hover:shadow-[0_0_20px_rgba(34,211,238,0.2)]">
+                  <div className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-4 space-y-2.5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-500/30 hover:shadow-[0_0_20px_rgba(34,211,238,0.2)]">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-medium text-zinc-100">Teste Rápido</span>
                       <StatusBadge variant="teste" label="Leads" />
@@ -832,7 +868,7 @@ export default function Configuracoes() {
                     </p>
                   </div>
 
-                  <div className="rounded-2xl border border-white/5 bg-[#030509]/50 p-4 space-y-2.5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-500/30 hover:shadow-[0_0_20px_rgba(34,211,238,0.2)]">
+                  <div className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-4 space-y-2.5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-500/30 hover:shadow-[0_0_20px_rgba(34,211,238,0.2)]">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-medium text-zinc-100">Reativação</span>
                       <StatusBadge variant="vencido" label="Vencido" />
@@ -845,7 +881,7 @@ export default function Configuracoes() {
 
                 <form
                   onSubmit={handleSalvarMsgCobranca}
-                  className="rounded-2xl border border-white/5 bg-[#030509]/50 p-5 space-y-3.5"
+                  className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-5 space-y-3.5"
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div className="flex items-center gap-2.5">
@@ -992,7 +1028,7 @@ export default function Configuracoes() {
           aria-modal="true"
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in"
         >
-          <div className="relative overflow-hidden w-full max-w-md rounded-2xl border border-white/5 bg-[#06080d]/60 backdrop-blur-2xl p-6 shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] space-y-5 animate-in zoom-in-95">
+          <div className="glass-modal relative overflow-hidden w-full max-w-md rounded-2xl p-6 space-y-5 animate-in zoom-in-95">
             <div className="pointer-events-none absolute -top-14 -right-14 h-40 w-40 rounded-full bg-radial from-cyan-500/10 to-transparent" />
 
             <div className="relative flex items-center justify-between border-b border-white/5 pb-4">

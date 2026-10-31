@@ -90,7 +90,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           <div
             key={t.id}
             role="status"
-            className="pointer-events-auto relative overflow-hidden flex items-start gap-3 rounded-2xl border border-white/10 bg-[#06080d]/80 p-4 text-zinc-100 backdrop-blur-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.5)] animate-in fade-in zoom-in-95"
+            className="glass-modal pointer-events-auto relative overflow-hidden flex items-start gap-3 rounded-2xl p-4 text-zinc-100 animate-in fade-in zoom-in-95"
           >
             <div className="pointer-events-none absolute -top-8 -right-8 h-24 w-24 rounded-full bg-radial from-cyan-500/10 to-transparent" />
 

@@ -157,7 +157,7 @@ export function GlassChartTooltip({
   const labelText = label !== undefined && label !== null ? String(label) : ''
 
   return (
-    <div className="rounded-xl border border-white/10 bg-[#06080d]/90 px-3 py-2 text-xs text-zinc-100 shadow-[0_8px_32px_0_rgba(0,0,0,0.6)] backdrop-blur-xl">
+    <div className="glass-modal rounded-xl px-3 py-2 text-xs text-zinc-100">
       {labelText !== '' && (
         <p className="mb-1 text-[11px] font-medium text-zinc-400">
           {labelPrefix ? `${labelPrefix}${labelText}` : labelText}

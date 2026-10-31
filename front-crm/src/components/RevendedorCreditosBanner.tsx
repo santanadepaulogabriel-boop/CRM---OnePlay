@@ -1,22 +1,22 @@
 import { Coins, Sparkles, AlertTriangle, ShoppingBag } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useCrmStore } from '../stores/useCrmStore'
+import { isMasterUser } from '../lib/multiTenant'
 import { StatusBadge } from './ui/TierOnePrimitives'
 
 export function RevendedorCreditosBanner() {
   const { usuario } = useAuth()
   const creditosStore = useCrmStore((state) => state.creditos)
 
-  const isMaster = usuario?.nivel_acesso === 'Master' || usuario?.role === 'master'
-  if (isMaster) return null
+  if (isMasterUser(usuario)) return null
 
   const saldo = typeof creditosStore === 'number' ? creditosStore : Number(usuario?.creditos ?? 0)
   const isZero = saldo <= 0
 
   return (
     <div
-      className={`relative mb-6 overflow-hidden rounded-2xl border bg-[#06080d]/60 p-4 shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] backdrop-blur-2xl transition-all duration-300 ${
-        isZero ? 'border-red-500/30' : 'border-white/5 hover:border-cyan-500/30'
+      className={`glass-card relative mb-6 overflow-hidden rounded-2xl p-4 transition-all duration-300 ${
+        isZero ? '!border-red-500/35' : 'neon-hover'
       }`}
     >
       <div className="pointer-events-none absolute -top-16 -right-16 h-44 w-44 rounded-full bg-radial from-cyan-500/10 to-transparent" />

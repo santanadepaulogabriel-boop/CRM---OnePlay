@@ -111,14 +111,26 @@ GRANT EXECUTE ON FUNCTION public.obter_contato_master() TO authenticated;
 -- 3. PADRONIZAÇÃO DA COLUNA reseller_id NAS TABELAS PRINCIPAIS
 -- ==============================================================================
 
--- 3.1 Clientes (clientes)
+-- 3.1 Clientes (clientes) - Garante vendedor_id, user_id, agente_id, tenant_id e reseller_id
+ALTER TABLE public.clientes ADD COLUMN IF NOT EXISTS vendedor_id UUID DEFAULT auth.uid();
+ALTER TABLE public.clientes ADD COLUMN IF NOT EXISTS user_id UUID DEFAULT auth.uid();
+ALTER TABLE public.clientes ADD COLUMN IF NOT EXISTS agente_id UUID;
+ALTER TABLE public.clientes ADD COLUMN IF NOT EXISTS tenant_id UUID;
 ALTER TABLE public.clientes ADD COLUMN IF NOT EXISTS reseller_id UUID;
+
+CREATE INDEX IF NOT EXISTS idx_clientes_vendedor_id ON public.clientes(vendedor_id);
+CREATE INDEX IF NOT EXISTS idx_clientes_user_id ON public.clientes(user_id);
 CREATE INDEX IF NOT EXISTS idx_clientes_reseller_id ON public.clientes(reseller_id);
 
 UPDATE public.clientes
-SET reseller_id = COALESCE(agente_id, vendedor_id, tenant_id)
+SET vendedor_id = COALESCE(vendedor_id, user_id, reseller_id, agente_id, tenant_id)
+WHERE vendedor_id IS NULL
+  AND COALESCE(user_id, reseller_id, agente_id, tenant_id) IS NOT NULL;
+
+UPDATE public.clientes
+SET reseller_id = COALESCE(agente_id, vendedor_id, user_id, tenant_id)
 WHERE reseller_id IS NULL
-  AND COALESCE(agente_id, vendedor_id, tenant_id) IS NOT NULL;
+  AND COALESCE(agente_id, vendedor_id, user_id, tenant_id) IS NOT NULL;
 
 -- 3.2 Pagamentos / Faturas (faturas)
 ALTER TABLE public.faturas ADD COLUMN IF NOT EXISTS reseller_id UUID;
@@ -268,10 +280,13 @@ TO authenticated
 USING (
   auth.uid() IS NOT NULL AND (
     public.is_master_user()
+    OR vendedor_id = auth.uid()
+    OR vendedor_id = public.current_reseller_agent_id()
+    OR user_id = auth.uid()
+    OR user_id = public.current_reseller_agent_id()
     OR reseller_id = auth.uid()
     OR reseller_id = public.current_reseller_agent_id()
     OR tenant_id = auth.uid()
-    OR vendedor_id = auth.uid()
     OR agente_id = public.current_reseller_agent_id()
   )
 );
@@ -282,6 +297,9 @@ TO authenticated
 WITH CHECK (
   auth.uid() IS NOT NULL AND (
     public.is_master_user()
+    OR vendedor_id = auth.uid()
+    OR vendedor_id = public.current_reseller_agent_id()
+    OR user_id = auth.uid()
     OR reseller_id = auth.uid()
     OR reseller_id = public.current_reseller_agent_id()
     OR tenant_id = auth.uid()
@@ -294,16 +312,22 @@ TO authenticated
 USING (
   auth.uid() IS NOT NULL AND (
     public.is_master_user()
+    OR vendedor_id = auth.uid()
+    OR vendedor_id = public.current_reseller_agent_id()
+    OR user_id = auth.uid()
+    OR user_id = public.current_reseller_agent_id()
     OR reseller_id = auth.uid()
     OR reseller_id = public.current_reseller_agent_id()
     OR tenant_id = auth.uid()
-    OR vendedor_id = auth.uid()
     OR agente_id = public.current_reseller_agent_id()
   )
 )
 WITH CHECK (
   auth.uid() IS NOT NULL AND (
     public.is_master_user()
+    OR vendedor_id = auth.uid()
+    OR vendedor_id = public.current_reseller_agent_id()
+    OR user_id = auth.uid()
     OR reseller_id = auth.uid()
     OR reseller_id = public.current_reseller_agent_id()
     OR tenant_id = auth.uid()
@@ -316,6 +340,9 @@ TO authenticated
 USING (
   auth.uid() IS NOT NULL AND (
     public.is_master_user()
+    OR vendedor_id = auth.uid()
+    OR vendedor_id = public.current_reseller_agent_id()
+    OR user_id = auth.uid()
     OR reseller_id = auth.uid()
     OR reseller_id = public.current_reseller_agent_id()
     OR tenant_id = auth.uid()
@@ -565,6 +592,7 @@ DROP POLICY IF EXISTS "tenant_servidores_update" ON public.servidores;
 DROP POLICY IF EXISTS "tenant_servidores_delete" ON public.servidores;
 DROP POLICY IF EXISTS "rls_servidores_select" ON public.servidores;
 DROP POLICY IF EXISTS "rls_servidores_write_master" ON public.servidores;
+DROP POLICY IF EXISTS "rls_servidores_manage_own" ON public.servidores;
 
 CREATE POLICY "rls_servidores_select"
 ON public.servidores FOR SELECT
@@ -575,15 +603,31 @@ USING (
     OR reseller_id = auth.uid()
     OR reseller_id = public.current_reseller_agent_id()
     OR tenant_id = auth.uid()
-    OR tenant_id IS NULL
+    OR tenant_id = public.current_reseller_agent_id()
   )
 );
 
-CREATE POLICY "rls_servidores_write_master"
+CREATE POLICY "rls_servidores_manage_own"
 ON public.servidores FOR ALL
 TO authenticated
-USING (auth.uid() IS NOT NULL AND public.is_master_user())
-WITH CHECK (auth.uid() IS NOT NULL AND public.is_master_user());
+USING (
+  auth.uid() IS NOT NULL AND (
+    public.is_master_user()
+    OR reseller_id = auth.uid()
+    OR reseller_id = public.current_reseller_agent_id()
+    OR tenant_id = auth.uid()
+    OR tenant_id = public.current_reseller_agent_id()
+  )
+)
+WITH CHECK (
+  auth.uid() IS NOT NULL AND (
+    public.is_master_user()
+    OR reseller_id = auth.uid()
+    OR reseller_id = public.current_reseller_agent_id()
+    OR tenant_id = auth.uid()
+    OR tenant_id = public.current_reseller_agent_id()
+  )
+);
 
 -- ==============================================================================
 -- 6. SUPORTE EXPLÍCITO PARA (clients, payments, credits_requests) COM auth.uid()
@@ -734,4 +778,8 @@ BEGIN
     );
 END;
 $$;
+
+-- Recarrega imediatamente o cache de schema do PostgREST
+NOTIFY pgrst, 'reload schema';
+
 

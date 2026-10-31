@@ -416,11 +416,10 @@ export const ListaRevendedores: React.FC = () => {
                     <td className="py-4 px-6 text-center whitespace-nowrap">{renderStatusBadge(rev)}</td>
                     <td className="py-4 px-6 text-center whitespace-nowrap">
                       <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-semibold border ${
-                          rev.nivelAcesso === 'Master'
-                            ? 'bg-amber-500/10 text-amber-300 border-amber-500/25'
-                            : 'bg-cyan-500/10 text-cyan-300 border-cyan-500/20'
-                        }`}
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-semibold border ${rev.nivelAcesso === 'Master'
+                          ? 'bg-amber-500/10 text-amber-300 border-amber-500/25'
+                          : 'bg-cyan-500/10 text-cyan-300 border-cyan-500/20'
+                          }`}
                       >
                         {rev.nivelAcesso}
                       </span>

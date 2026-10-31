@@ -6,8 +6,10 @@ import {
   fetchClientesMultiTenant,
   fetchCreditosRequestsMultiTenant,
   fetchPagamentosMultiTenant,
+  isMissingColumnError,
   isResellerUser,
   pertenceAoParceiro,
+  resolvePartnerIds,
 } from '../lib/multiTenant'
 
 export type CrmRole = 'master' | 'reseller' | 'revendedor'
@@ -39,6 +41,7 @@ export interface Cliente {
   estagio_funil?: string | null
   reseller_id?: string | null
   vendedor_id?: string | null
+  user_id?: string | null
   agente_id?: string | null
   tenant_id?: string | null
   em_suporte?: boolean | null
@@ -435,17 +438,30 @@ export const useCrmStore = create<CrmStoreState>((set, get) => ({
   excluirServidor: async (id: string) => {
     const user = get().user
     const isReseller = user ? user.role === 'reseller' || isResellerUser(user) : true
+    const partnerIds = resolvePartnerIds(user?.id, user?.authId)
+
+    if (isReseller && partnerIds.length === 0) {
+      return { success: false, error: 'Operação não autorizada.' }
+    }
 
     let query = supabase.from('servidores').delete().eq('id', id)
     if (isReseller) {
-      const tenantFilter = user?.authId || user?.id
-      if (!tenantFilter) {
-        return { success: false, error: 'Operação não autorizada.' }
-      }
-      query = query.eq('tenant_id', tenantFilter)
+      query =
+        partnerIds.length === 1
+          ? query.eq('tenant_id', partnerIds[0])
+          : query.in('tenant_id', partnerIds)
     }
 
-    const { error } = await query
+    let { error } = await query
+    if (isReseller && error && isMissingColumnError(error, 'tenant_id')) {
+      const fbQuery =
+        partnerIds.length === 1
+          ? supabase.from('servidores').delete().eq('id', id).eq('reseller_id', partnerIds[0])
+          : supabase.from('servidores').delete().eq('id', id).in('reseller_id', partnerIds)
+      const fbRes = await fbQuery
+      error = fbRes.error
+    }
+
     if (error) {
       console.error('Erro ao excluir servidor no Supabase:', error.message)
       return { success: false, error: error.message }

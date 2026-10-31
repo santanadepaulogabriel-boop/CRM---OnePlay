@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import { Link } from 'react-router-dom'
 import {
   Search,
   FolderOpen,
@@ -11,15 +11,20 @@ import {
   Plus,
   RotateCw,
   Loader2,
+  ExternalLink,
   X,
 } from 'lucide-react'
 import { WhatsAppMessengerModal } from './WhatsAppMessengerModal'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
 import { useFeatureGating } from '../hooks/useFeatureGating'
+import { useCrmStore } from '../stores/useCrmStore'
 import {
   fetchClientesMultiTenant,
+  fetchPartnerRowsMultiTenant,
   insertClienteMultiTenant,
+  isResellerUser,
+  pertenceAoParceiro,
   updateClienteMultiTenant,
 } from '../lib/multiTenant'
 
@@ -137,15 +142,29 @@ export const KanbanBoard: React.FC = () => {
   const fetchClients = useCallback(async () => {
     try {
       setLoading(true)
+      const isReseller = isResellerUser(usuario)
+      const vendedorId = usuario?.authId ?? usuario?.id ?? null
+
+      if (isReseller && !usuario?.id && !vendedorId) {
+        setClients([])
+        return
+      }
+
       const { data: cliRows, error: cliErr } = await fetchClientesMultiTenant(
         usuario?.role,
         usuario?.id,
-        usuario?.authId
+        vendedorId
       )
 
       if (!cliErr && Array.isArray(cliRows)) {
+        const safeRows = isReseller
+          ? (cliRows as Record<string, unknown>[]).filter((r) =>
+              pertenceAoParceiro(r, usuario?.id, vendedorId)
+            )
+          : (cliRows as Record<string, unknown>[])
+
         const mapped: KanbanClient[] = []
-        for (const r of cliRows as Record<string, unknown>[]) {
+        for (const r of safeRows) {
           const st = normalizeStage(r.estagio_funil ?? r.kanban_stage, r.status ?? r.Status)
           if (st === 'cliente') continue
           mapped.push({
@@ -163,12 +182,27 @@ export const KanbanBoard: React.FC = () => {
         return
       }
 
-      // Fallback caso exista tabela `clients` legada
-      const { data, error } = await supabase.from('clients').select('*')
-      if (error) throw error
+      // Fallback resiliente caso exista tabela `clients` legada (filtrando por vendedor_id / posse sem erro de coluna)
+      const { data, error } = await fetchPartnerRowsMultiTenant<Record<string, unknown>>(
+        'clients',
+        usuario?.role,
+        usuario?.id,
+        vendedorId
+      )
+      if (error) {
+        if (isReseller) {
+          setClients([])
+          return
+        }
+        throw error
+      }
       if (Array.isArray(data)) {
+        const safeLegacy = isReseller
+          ? data.filter((r) => pertenceAoParceiro(r, usuario?.id, vendedorId))
+          : data
+
         setClients(
-          data.map((r: Record<string, unknown>) => {
+          safeLegacy.map((r: Record<string, unknown>) => {
             const st = normalizeStage(r.kanban_stage ?? r.estagio_funil, r.status)
             return {
               id: String(r.id ?? ''),
@@ -188,17 +222,20 @@ export const KanbanBoard: React.FC = () => {
     } finally {
       setLoading(false)
     }
-  }, [usuario?.authId, usuario?.id, usuario?.role])
+  }, [usuario])
 
   useEffect(() => {
     void fetchClients()
   }, [fetchClients])
 
-  // Atualização otimista do estágio no Kanban
+  // Atualização otimista do estágio no Kanban com isolamento Multi-Tenant por vendedor_id
   const handleStageChange = async (clientId: string, newStage: StageId) => {
     const target = clients.find((c) => c.id === clientId)
     if (!target || target.kanban_stage === newStage) return
     const previousClients = [...clients]
+    const nextDbStage = stageToDbValue(newStage)
+    const nextDbStatus = newStage === 'test' ? 'teste' : 'lead'
+    const vendedorId = usuario?.authId ?? usuario?.id ?? null
 
     setClients((prev) =>
       prev.map((client) =>
@@ -208,21 +245,41 @@ export const KanbanBoard: React.FC = () => {
 
     try {
       if (target.sourceTable === 'clientes') {
-        const { error } = await updateClienteMultiTenant(
+        const { error, unauthorized } = await updateClienteMultiTenant(
           clientId,
           {
-            estagio_funil: stageToDbValue(newStage),
-            status: newStage === 'test' ? 'teste' : 'lead',
+            estagio_funil: nextDbStage,
+            status: nextDbStatus,
           },
           usuario?.role,
-          usuario?.id
+          usuario?.id,
+          vendedorId,
+          'clientes'
         )
+        if (unauthorized) {
+          setClients(previousClients)
+          toast.warning('Operação bloqueada: esta oportunidade não pertence à sua carteira.')
+          return
+        }
         if (error) throw error
+        useCrmStore.getState().atualizarCliente(clientId, {
+          estagio_funil: nextDbStage,
+          status: nextDbStatus,
+        })
       } else {
-        const { error } = await supabase
-          .from('clients')
-          .update({ kanban_stage: newStage })
-          .eq('id', clientId)
+        const { error, unauthorized } = await updateClienteMultiTenant(
+          clientId,
+          { kanban_stage: newStage },
+          usuario?.role,
+          usuario?.id,
+          vendedorId,
+          'clients'
+        )
+        if (unauthorized) {
+          setClients(previousClients)
+          toast.warning('Operação bloqueada: esta oportunidade não pertence à sua carteira.')
+          return
+        }
         if (error) throw error
       }
     } catch (error) {
@@ -238,7 +295,7 @@ export const KanbanBoard: React.FC = () => {
 
     setSavingLead(true)
     try {
-      const { error } = await insertClienteMultiTenant(
+      const { data, error } = await insertClienteMultiTenant(
         {
           nome_completo: novoLead.nome.trim(),
           nome: novoLead.nome.trim(),
@@ -253,6 +310,9 @@ export const KanbanBoard: React.FC = () => {
       )
 
       if (error) throw error
+      if (data) {
+        useCrmStore.getState().adicionarCliente(data)
+      }
 
       toast.success('Novo lead registado no funil comercial!')
       setNovoLead({ nome: '', whatsapp: '', plano: 'Plano Mensal', estagio: 'lead' })
@@ -431,12 +491,23 @@ export const KanbanBoard: React.FC = () => {
                       >
                         {/* Linha 1: Nome + Status */}
                         <div className="flex items-center justify-between gap-2 mb-2">
-                          <h4
-                            title={client.name}
-                            className="min-w-0 flex-1 font-semibold text-zinc-100 text-sm tracking-tight group-hover:text-cyan-300 transition-colors truncate"
-                          >
-                            {client.name}
-                          </h4>
+                          {client.sourceTable === 'clientes' ? (
+                            <Link
+                              to={`/cliente/${client.id}`}
+                              title={`Abrir ficha de ${client.name}`}
+                              className="min-w-0 flex-1 flex items-center gap-1.5 font-semibold text-zinc-100 text-sm tracking-tight hover:text-cyan-300 transition-colors"
+                            >
+                              <span className="truncate">{client.name}</span>
+                              <ExternalLink className="w-3 h-3 text-zinc-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                            </Link>
+                          ) : (
+                            <h4
+                              title={client.name}
+                              className="min-w-0 flex-1 font-semibold text-zinc-100 text-sm tracking-tight group-hover:text-cyan-300 transition-colors truncate"
+                            >
+                              {client.name}
+                            </h4>
+                          )}
                           <span className="inline-flex items-center rounded-full border border-cyan-500/20 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-medium text-cyan-300 capitalize whitespace-nowrap shrink-0">
                             {client.status}
                           </span>

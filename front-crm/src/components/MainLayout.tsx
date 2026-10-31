@@ -39,7 +39,7 @@ interface SectionMeta {
   icon: LucideIcon
 }
 
-function getSectionMeta(activeTab: string, pathname: string): SectionMeta {
+function getSectionMeta(activeTab: string, pathname: string, isMaster: boolean): SectionMeta {
   if (pathname.startsWith('/cliente/')) {
     return {
       title: 'Ficha do Assinante',
@@ -52,7 +52,9 @@ function getSectionMeta(activeTab: string, pathname: string): SectionMeta {
     case 'metrics':
       return {
         title: 'Inteligência & Métricas',
-        subtitle: 'Receita recorrente, expansão comercial e performance consolidada',
+        subtitle: isMaster
+          ? 'Receita recorrente, expansão comercial e performance consolidada'
+          : 'Receita recorrente da sua carteira, conversão e performance comercial',
         icon: BarChart3,
       }
     case 'clients':
@@ -75,8 +77,10 @@ function getSectionMeta(activeTab: string, pathname: string): SectionMeta {
       }
     case 'settings':
       return {
-        title: 'Configurações Globais de API',
-        subtitle: 'Servidores IPTV, chaves de integração e políticas operacionais',
+        title: isMaster ? 'Configurações Globais de API' : 'Configurações Globais',
+        subtitle: isMaster
+          ? 'Servidores IPTV, chaves de integração e políticas operacionais'
+          : 'Servidores próprios, credenciais de integração e segurança do seu perfil',
         icon: Settings,
       }
     default:
@@ -119,7 +123,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   const activeTab: string =
     currentTab ?? (resolvedIsMaster ? 'metrics' : 'clients')
 
-  const sectionMeta = getSectionMeta(activeTab, location.pathname)
+  const sectionMeta = getSectionMeta(activeTab, location.pathname, resolvedIsMaster)
   const SectionIcon = sectionMeta.icon
   const transitionKey = location.pathname.startsWith('/cliente/')
     ? location.pathname
@@ -131,11 +135,16 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
     icon: typeof BarChart3
     show: boolean
   }[] = [
-    { id: 'metrics', label: 'Inteligência & Métricas', icon: BarChart3, show: resolvedIsMaster },
+    { id: 'metrics', label: 'Inteligência & Métricas', icon: BarChart3, show: true },
     { id: 'clients', label: 'Clientes & Renovações', icon: Users, show: true },
     { id: 'kanban', label: 'Funil de Vendas', icon: Kanban, show: true },
     { id: 'resellers', label: 'Gestão de Revendas', icon: UserCheck, show: resolvedIsMaster },
-    { id: 'settings', label: 'Configurações Globais de API', icon: Settings, show: resolvedIsMaster },
+    {
+      id: 'settings',
+      label: resolvedIsMaster ? 'Configurações Globais de API' : 'Configurações Globais',
+      icon: Settings,
+      show: true,
+    },
   ]
   const menuItems = allMenuItems.filter((item) => item.show)
 
@@ -193,16 +202,14 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                   key={item.id}
                   type="button"
                   onClick={() => handleTabClick(item.id)}
-                  className={`group w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 ease-out ${
-                    isActive
-                      ? 'bg-cyan-500/15 text-cyan-200 border border-cyan-500/35 shadow-[0_0_20px_rgba(34,211,238,0.14)]'
-                      : 'text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.05] hover:translate-x-0.5 border border-transparent'
-                  }`}
+                  className={`group w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 ease-out ${isActive
+                    ? 'bg-cyan-500/15 text-cyan-200 border border-cyan-500/35 shadow-[0_0_20px_rgba(34,211,238,0.14)]'
+                    : 'text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.05] hover:translate-x-0.5 border border-transparent'
+                    }`}
                 >
                   <Icon
-                    className={`w-4 h-4 shrink-0 transition-colors duration-200 ${
-                      isActive ? 'text-cyan-400' : 'text-zinc-400 group-hover:text-cyan-300'
-                    }`}
+                    className={`w-4 h-4 shrink-0 transition-colors duration-200 ${isActive ? 'text-cyan-400' : 'text-zinc-400 group-hover:text-cyan-300'
+                      }`}
                   />
                   <span className="truncate">{item.label}</span>
                 </button>
@@ -235,11 +242,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
             <p className="text-[11px] text-zinc-400 font-mono truncate">{resolvedEmail}</p>
           </div>
           <span
-            className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border shrink-0 ${
-              resolvedIsMaster
-                ? 'bg-amber-500/10 text-amber-300 border-amber-500/30'
-                : 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30'
-            }`}
+            className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border shrink-0 ${resolvedIsMaster
+              ? 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+              : 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30'
+              }`}
           >
             {resolvedIsMaster ? 'MASTER' : 'PARCEIRO'}
           </span>
@@ -259,6 +265,20 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 
   return (
     <div className="relative flex min-h-screen w-full bg-cinematic text-zinc-100">
+      {/* Camada Fixa do Fundo Cinematográfico + Overlay Escuro em Alta Opacidade para Contraste Absoluto */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-0 z-0 bg-[url('/bg-cinema-neon.png')] bg-cover bg-center bg-no-repeat"
+      >
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              'linear-gradient(180deg, rgba(0, 0, 0, 0.90) 0%, rgba(2, 4, 10, 0.85) 50%, rgba(0, 0, 0, 0.93) 100%)',
+          }}
+        />
+      </div>
+
       {/* Sidebar Fixa Desktop (w-64 = 16rem = md:pl-64) */}
       <aside className="hidden md:flex fixed inset-y-0 left-0 z-40 w-64 glass-sidebar flex-col justify-between">
         {sidebarContent}
@@ -267,29 +287,27 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
       {/* Drawer Mobile */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm md:hidden"
+          className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm md:hidden"
           onClick={() => setSidebarOpen(false)}
           aria-hidden="true"
         />
       )}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] glass-sidebar flex flex-col justify-between transition-transform duration-300 ease-out md:hidden ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+        className={`fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] glass-sidebar flex flex-col justify-between transition-transform duration-300 ease-out md:hidden ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
       >
         {sidebarContent}
       </aside>
 
-      {/* Área Externa com Espaçamento Responsivo Estrito (pl-0 md:pl-64) e Margem Uniforme */}
-      <div className="relative flex flex-1 min-w-0 w-full flex-col min-h-screen pl-0 md:pl-64 bg-transparent">
-        <div className="flex flex-1 min-w-0 w-full flex-col p-2.5 sm:p-4 lg:p-6">
-          {/* "Palco" Unificado Glassmorphism (.glass-container) — Unificado para Master e Revendedor */}
-          <div className="glass-container relative flex flex-1 min-w-0 w-full flex-col rounded-2xl lg:rounded-3xl">
-            <SmartBanner />
-
-            {/* Barra de Topo Persistente e Imune a Mudanças de Abas */}
-            <header className="sticky top-0 z-30 glass-header rounded-t-2xl lg:rounded-t-3xl px-4 sm:px-6 lg:px-8 py-3 sm:py-0 sm:h-16 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
+      {/* Shell de Compensação Estrita da Sidebar Fixa (exclusivamente pl-0 md:pl-64, sem conflito de shorthand p-*) */}
+      <div className="relative z-10 flex flex-1 min-w-0 w-full flex-col min-h-screen pl-0 md:pl-64">
+        {/* Wrapper de Respiro Lateral e Vertical Uniforme (idêntico para Painel Master e Painel Revendedor) */}
+        <div className="flex flex-1 min-w-0 w-full flex-col px-4 py-4 sm:px-6 sm:py-6 md:pl-7 md:pr-6 lg:pl-9 lg:pr-8 lg:py-7">
+          {/* <main> como Palco Flutuante Unificado .glass-card (idêntico no Painel Master e Painel Revendedor) */}
+          <main className="glass-card relative flex flex-1 min-w-0 w-full max-w-[1640px] mx-auto flex-col rounded-2xl lg:rounded-3xl overflow-x-clip">
+            {/* Barra de Topo Persistente sempre ancorada ao topo do palco com Relógio Fixo de Precisão à direita */}
+            <header className="sticky top-0 z-30 glass-header rounded-t-2xl lg:rounded-t-3xl px-5 sm:px-7 lg:px-9 py-3.5 sm:py-0 sm:min-h-[4.5rem] flex items-center justify-between gap-4 shrink-0">
+              <div className="flex items-center gap-3.5 min-w-0">
                 <HamburgerButton />
                 <div className="hidden sm:flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-cyan-500/25 bg-cyan-500/10 text-cyan-400 shadow-[0_0_16px_rgba(34,211,238,0.14)]">
                   <SectionIcon className="h-4 w-4" />
@@ -310,16 +328,18 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
               </div>
             </header>
 
-            {/* Conteúdo Dinâmico <main> com Padding Uniforme e Tech Transition SPA */}
-            <main className="flex-1 flex flex-col min-w-0 w-full p-4 sm:p-6 lg:p-8">
+            <SmartBanner />
+
+            {/* Área Interna do Palco com Alinhamento Horizontal Idêntico ao Cabeçalho (px-5 sm:px-7 lg:px-9) */}
+            <div className="flex flex-1 flex-col min-w-0 w-full px-5 sm:px-7 lg:px-9 py-5 sm:py-7 lg:py-8 gap-6">
               <div
                 key={transitionKey}
-                className="tech-stage-enter flex-1 flex flex-col min-w-0 w-full max-w-[1600px] mx-auto"
+                className="tech-stage-enter flex flex-1 flex-col min-w-0 w-full gap-6"
               >
                 {children ?? <Outlet />}
               </div>
-            </main>
-          </div>
+            </div>
+          </main>
         </div>
       </div>
     </div>

@@ -26,14 +26,22 @@ const TAB_TO_PATH: Record<CrmTabId, string> = {
 }
 
 function resolveTabFromPathname(pathname: string, isMaster: boolean): CrmTabId {
-  if (pathname.startsWith('/metricas')) return isMaster ? 'metrics' : 'clients'
-  if (pathname.startsWith('/retencao')) return 'clients'
+  if (pathname.startsWith('/metricas')) return 'metrics'
+  if (
+    pathname.startsWith('/retencao') ||
+    pathname.startsWith('/clientes') ||
+    pathname.startsWith('/painel') ||
+    pathname.startsWith('/revendedor') ||
+    pathname.startsWith('/parceiro')
+  ) {
+    return 'clients'
+  }
   if (pathname.startsWith('/funil')) return 'kanban'
   if (pathname.startsWith('/revendas') || pathname.startsWith('/equipe')) {
     return isMaster ? 'resellers' : 'clients'
   }
   if (pathname.startsWith('/configuracoes')) {
-    return isMaster ? 'settings' : 'clients'
+    return 'settings'
   }
   return isMaster ? 'metrics' : 'clients'
 }
@@ -59,12 +67,9 @@ export default function Dashboard({ initialTab }: DashboardProps = {}) {
 
   const handleTabChange = useCallback(
     (nextTab: CrmTabId) => {
-      if (
-        !isMaster &&
-        (nextTab === 'metrics' || nextTab === 'resellers' || nextTab === 'settings')
-      ) {
+      if (!isMaster && nextTab === 'resellers') {
         toast.warning(
-          'Este módulo é exclusivo da administração Master.',
+          'A Gestão de Revendas é exclusiva da administração Master.',
           'Acesso Restrito'
         )
         setCurrentTab('clients')
@@ -82,10 +87,7 @@ export default function Dashboard({ initialTab }: DashboardProps = {}) {
   )
 
   const effectiveTab: CrmTabId =
-    !isMaster &&
-    (currentTab === 'metrics' || currentTab === 'resellers' || currentTab === 'settings')
-      ? 'clients'
-      : currentTab
+    !isMaster && currentTab === 'resellers' ? 'clients' : currentTab
 
   const saldoCreditos =
     typeof creditosStore === 'number' ? creditosStore : Number(usuario?.creditos ?? 0)

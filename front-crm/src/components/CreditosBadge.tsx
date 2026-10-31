@@ -1,6 +1,7 @@
 import { Coins, Sparkles, AlertTriangle } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useCrmStore } from '../stores/useCrmStore'
+import { isMasterUser } from '../lib/multiTenant'
 
 interface Props {
   className?: string
@@ -13,12 +14,12 @@ export function CreditosBadge({ className = '', showLabel = true, showSubtitle =
   const creditosStore = useCrmStore((state) => state.creditos)
 
   const saldo = typeof creditosStore === 'number' ? creditosStore : Number(usuario?.creditos ?? 0)
-  const isMaster = usuario?.nivel_acesso === 'Master' || usuario?.role === 'master'
+  const isMaster = isMasterUser(usuario)
 
   if (isMaster) {
     return (
       <div
-        className={`relative overflow-hidden flex items-center gap-2 rounded-xl border border-white/5 bg-[#06080d]/60 px-3 py-2 text-xs font-medium text-zinc-200 backdrop-blur-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] ${className}`}
+        className={`glass-card relative overflow-hidden flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-zinc-200 ${className}`}
         title="Conta Master possui acesso administrativo irrestrito"
       >
         <div className="pointer-events-none absolute -top-6 -right-6 h-16 w-16 rounded-full bg-radial from-cyan-500/15 to-transparent" />
@@ -41,10 +42,10 @@ export function CreditosBadge({ className = '', showLabel = true, showSubtitle =
           useCrmStore.getState().abrirLojaCreditos()
         }
       }}
-      className={`group relative overflow-hidden flex flex-col justify-center rounded-xl border px-3 py-2 text-xs font-medium backdrop-blur-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] cursor-pointer transition-all duration-300 hover:-translate-y-1 ${
+      className={`group relative overflow-hidden flex flex-col justify-center rounded-xl px-3 py-2 text-xs font-medium cursor-pointer transition-all duration-300 hover:-translate-y-0.5 ${
         isZero
-          ? 'border-red-500/30 bg-red-500/10 text-red-400 hover:border-red-400/50 hover:shadow-[0_0_20px_rgba(248,113,113,0.2)]'
-          : 'border-white/5 bg-[#06080d]/60 text-zinc-200 hover:border-cyan-500/30 hover:shadow-[0_0_20px_rgba(34,211,238,0.2)]'
+          ? 'border border-red-500/35 bg-red-500/10 backdrop-blur-xl text-red-300 hover:border-red-400/50 hover:shadow-[0_0_20px_rgba(248,113,113,0.2)]'
+          : 'glass-card neon-hover text-zinc-200'
       } ${className}`}
       title={`Créditos Disponíveis: ${saldo} · Clique para abrir a Loja de Créditos`}
     >

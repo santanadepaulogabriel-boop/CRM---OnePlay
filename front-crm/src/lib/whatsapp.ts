@@ -35,12 +35,12 @@ export function gerarLinkWhatsApp(cliente: Partial<Cliente> & Record<string, unk
   let mensagem: string
 
   if (statusLower === 'alerta_vencimento' || statusLower === 'alerta') {
-    mensagem = `Olá, ${primeiroNome}! A sua assinatura do OnePlay vence em breve. Segue o link para renovação: [INSERIR LINK]`
+    mensagem = `Olá, *${primeiroNome}*! Sua assinatura OnePlay vence em breve. Para evitar interrupções no seu acesso e garantir a renovação imediata, responda esta mensagem!`
   } else if (statusLower === 'inativo' || statusLower === 'vencido') {
-    mensagem = `Olá, ${primeiroNome}! Notamos que a sua assinatura do OnePlay está inativa. Gostaria de reativar o seu acesso agora mesmo? Segue o link para reativação: [INSERIR LINK]`
+    mensagem = `Olá, *${primeiroNome}*! Identificamos que sua assinatura OnePlay encontra-se expirada. Podemos reativar o seu acesso imediatamente via PIX para continuar aproveitando toda a programação. Vamos renovar hoje?`
   } else {
     // 'ativo' ou padrão
-    mensagem = `Olá, ${primeiroNome}! Tudo bem? Passando para saber como está sendo a sua experiência com o OnePlay. Qualquer dúvida ou suporte, estamos à disposição!`
+    mensagem = `Olá, *${primeiroNome}*! Sua assinatura OnePlay segue ativa. Passando para saber como está a sua experiência e colocar nosso atendimento prioritário à disposição para renovações ou suporte!`
   }
 
   const mensagemCodificada = encodeURIComponent(mensagem)

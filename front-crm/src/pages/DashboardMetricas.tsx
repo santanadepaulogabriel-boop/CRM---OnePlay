@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, Navigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import {
   Area,
   AreaChart,
@@ -35,8 +35,8 @@ import { useCrmStore } from '../stores/useCrmStore'
 import {
   fetchClientesMultiTenant,
   fetchFaturasMultiTenant,
-  getSafeHomeRoute,
   isMasterUser,
+  pertenceAoParceiro,
 } from '../lib/multiTenant'
 import {
   EmptyState,
@@ -128,16 +128,13 @@ const kpiCardClass =
 function MetricasSkeleton({ isMaster }: { isMaster: boolean }) {
   return (
     <div className="space-y-8">
-      <div className="h-12 w-full rounded-2xl border border-white/5 bg-[#06080d]/60 backdrop-blur-2xl animate-pulse" />
+      <div className="glass-card h-12 w-full rounded-2xl animate-pulse" />
 
       {isMaster && (
         <>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="rounded-2xl border border-white/5 bg-[#06080d]/60 backdrop-blur-2xl p-5 space-y-3"
-              >
+              <div key={i} className="glass-card rounded-2xl p-5 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="h-3.5 w-28 rounded bg-white/10 animate-pulse" />
                   <div className="h-9 w-9 rounded-xl bg-white/10 animate-pulse" />
@@ -148,12 +145,12 @@ function MetricasSkeleton({ isMaster }: { isMaster: boolean }) {
             ))}
           </div>
 
-          <div className="rounded-2xl border border-white/5 bg-[#06080d]/60 backdrop-blur-2xl p-6 space-y-4">
+          <div className="glass-card rounded-2xl p-6 space-y-4">
             <div className="h-4 w-56 rounded bg-white/10 animate-pulse" />
             <div className="h-72 w-full rounded-xl bg-white/5 animate-pulse" />
           </div>
 
-          <div className="rounded-2xl border border-white/5 bg-[#06080d]/60 backdrop-blur-2xl p-6 space-y-3">
+          <div className="glass-card rounded-2xl p-6 space-y-3">
             <div className="h-4 w-48 rounded bg-white/10 animate-pulse" />
             {[1, 2, 3, 4].map((row) => (
               <div key={row} className="h-12 w-full rounded-xl bg-white/5 animate-pulse" />
@@ -164,10 +161,7 @@ function MetricasSkeleton({ isMaster }: { isMaster: boolean }) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
         {[1, 2, 3, 4].map((i) => (
-          <div
-            key={i}
-            className="rounded-2xl border border-white/5 bg-[#06080d]/60 backdrop-blur-2xl p-5 space-y-3"
-          >
+          <div key={i} className="glass-card rounded-2xl p-5 space-y-3">
             <div className="h-3.5 w-24 rounded bg-white/10 animate-pulse" />
             <div className="h-8 w-32 rounded bg-white/10 animate-pulse" />
             <div className="h-3 w-40 rounded bg-white/5 animate-pulse" />
@@ -196,6 +190,7 @@ export default function DashboardMetricas() {
   const [historicoMrrRows, setHistoricoMrrRows] = useState<Record<string, unknown>[]>([])
   const [historicoMrrFonte, setHistoricoMrrFonte] = useState<'tabela' | 'derivado'>('tabela')
   const [referenceNow, setReferenceNow] = useState<number>(() => Date.now())
+  const [lastSyncAt, setLastSyncAt] = useState<number | null>(null)
   const [rankingSort, setRankingSort] = useState<'ativos' | 'ltv'>('ativos')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -207,7 +202,7 @@ export default function DashboardMetricas() {
     async (forcar = false) => {
       if (loadingAuth) return
 
-      if (!usuario || !isMasterUser(usuario)) {
+      if (!usuario) {
         setClientes([])
         setFaturas([])
         setAgentes([])
@@ -218,20 +213,34 @@ export default function DashboardMetricas() {
 
       const QUINZE_MINUTOS_MS = 15 * 60 * 1000
       const storeState = useCrmStore.getState()
-      const cacheAtual = storeState.metricasCache as MetricasCachePayload | null
-      const ultimoFetch = storeState.lastFetchMetricas
+      const masterSession = isMasterUser(usuario)
+      const userRole = masterSession ? 'master' : 'reseller'
+
+      if (!storeState.user || storeState.user.id !== usuario.id) {
+        storeState.setUser({
+          id: usuario.id,
+          authId: usuario.authId,
+          email: usuario.email,
+          nome: usuario.nome,
+          role: usuario.role,
+          creditos: usuario.creditos ?? 0,
+        })
+      }
+
+      const cacheAtual = masterSession
+        ? (storeState.metricasCache as MetricasCachePayload | null)
+        : null
+      const ultimoFetch = masterSession ? storeState.lastFetchMetricas : null
       const agora = Date.now()
       setReferenceNow(agora)
 
-      const userRole = 'master'
-      const masterSession = true
-
       if (
+        masterSession &&
         !forcar &&
         cacheAtual &&
         ultimoFetch &&
         agora - ultimoFetch < QUINZE_MINUTOS_MS &&
-        (!masterSession || Array.isArray(cacheAtual.agentes))
+        Array.isArray(cacheAtual.agentes)
       ) {
         if (Array.isArray(cacheAtual.clientes)) {
           setClientes(cacheAtual.clientes as Row[])
@@ -248,6 +257,7 @@ export default function DashboardMetricas() {
           setHistoricoMrrFonte(cacheAtual.historicoMrrFonte === 'derivado' ? 'derivado' : 'tabela')
         }
         setIsCached(true)
+        setLastSyncAt(ultimoFetch)
         setLoading(false)
         setError(null)
         return
@@ -259,34 +269,57 @@ export default function DashboardMetricas() {
 
       try {
         let rpcData: unknown = null
-        try {
-          const { data: rpcRes, error: rpcErr } = await supabase.rpc('obter_metricas_saas')
-          if (!rpcErr && rpcRes) {
-            rpcData = rpcRes
+        if (masterSession) {
+          try {
+            const { data: rpcRes, error: rpcErr } = await supabase.rpc('obter_metricas_saas')
+            if (!rpcErr && rpcRes) {
+              rpcData = rpcRes
+            }
+          } catch (rpcErr) {
+            console.warn('RPC obter_metricas_saas indisponível:', rpcErr)
           }
-        } catch (rpcErr) {
-          console.warn('RPC obter_metricas_saas indisponível:', rpcErr)
         }
 
-        const userId = usuario?.id
-        const { data: cliRows, error: cliError } = await fetchClientesMultiTenant(userRole, userId)
+        const userId = usuario.id
+        const authId = usuario.authId
+        const { data: cliRowsRaw, error: cliError } = await fetchClientesMultiTenant(
+          userRole,
+          userId,
+          authId
+        )
         if (cliError) {
           throw new Error(`Erro ao carregar clientes: ${cliError.message}`)
         }
+
+        const cliRows = masterSession
+          ? cliRowsRaw
+          : cliRowsRaw.filter((c) =>
+              pertenceAoParceiro(c as Record<string, unknown>, userId, authId)
+            )
 
         setClientes(cliRows as Row[])
         useCrmStore.getState().setClientes(cliRows)
 
         const ids = cliRows.map((c) => c?.id).filter(Boolean) as (string | number)[]
+        const allowedClientIds = new Set(ids.map((id) => String(id)))
         const { data: fatData, error: fatError } = await fetchFaturasMultiTenant(
           userRole,
           userId,
-          ids
+          ids,
+          authId
         )
         if (fatError) {
           console.warn('Aviso ao carregar faturas no Supabase:', fatError)
         }
-        const faturasCarregadas = (fatData || []) as Row[]
+        const faturasCarregadas = (
+          masterSession
+            ? fatData || []
+            : (fatData || []).filter(
+                (f) =>
+                  pertenceAoParceiro(f, userId, authId) ||
+                  allowedClientIds.has(String(f.cliente_id ?? ''))
+              )
+        ) as Row[]
         setFaturas(faturasCarregadas)
 
         let agentesCarregados: AgenteRow[] = []
@@ -312,23 +345,30 @@ export default function DashboardMetricas() {
           }
           setHistoricoMrrRows(mrrRowsCarregadas)
           setHistoricoMrrFonte(fonteMrr)
+        } else {
+          setAgentes([])
+          setHistoricoMrrRows([])
+          setHistoricoMrrFonte('derivado')
         }
 
         const timestampNovo = Date.now()
         setReferenceNow(timestampNovo)
-        useCrmStore.getState().setMetricasCache(
-          {
-            clientes: cliRows,
-            faturas: faturasCarregadas,
-            agentes: agentesCarregados,
-            historicoMrr: mrrRowsCarregadas,
-            historicoMrrFonte: fonteMrr,
-            rpcData,
-            timestamp: timestampNovo,
-          },
-          timestampNovo
-        )
-        setIsCached(true)
+        setLastSyncAt(timestampNovo)
+        if (masterSession) {
+          useCrmStore.getState().setMetricasCache(
+            {
+              clientes: cliRows,
+              faturas: faturasCarregadas,
+              agentes: agentesCarregados,
+              historicoMrr: mrrRowsCarregadas,
+              historicoMrrFonte: fonteMrr,
+              rpcData,
+              timestamp: timestampNovo,
+            },
+            timestampNovo
+          )
+          setIsCached(true)
+        }
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err)
         console.error('Falha ao obter métricas do Supabase:', msg, err)
@@ -616,16 +656,13 @@ export default function DashboardMetricas() {
     }
   }, [isMaster, agentes, historicoMrrRows, faturas, clientes, m.mrr, m.ativos, rankingSort])
 
-  const lastFetch = useCrmStore((s) => s.lastFetchMetricas)
-  const minutosDesdeSync = lastFetch
-    ? Math.max(0, Math.floor((referenceNow - lastFetch) / 60000))
+  const storeLastFetch = useCrmStore((s) => s.lastFetchMetricas)
+  const effectiveLastFetch = isMaster ? (storeLastFetch ?? lastSyncAt) : lastSyncAt
+  const minutosDesdeSync = effectiveLastFetch
+    ? Math.max(0, Math.floor((referenceNow - effectiveLastFetch) / 60000))
     : 0
 
-  if (!loadingAuth && usuario && !isMaster) {
-    return <Navigate to={getSafeHomeRoute(usuario)} replace />
-  }
-
-  if (loading) {
+  if (loading || loadingAuth) {
     return <MetricasSkeleton isMaster={isMaster} />
   }
 
@@ -648,14 +685,14 @@ export default function DashboardMetricas() {
         </div>
       )}
 
-      {/* Barra de Atualização Executiva */}
+      {/* Barra de Atualização Executiva / Operacional */}
       <div className={`${glassSurface} flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-3 text-xs`}>
         <div className="flex items-center gap-2.5 flex-wrap">
           <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.9)]" />
           <span className="text-zinc-400">
-            Painel financeiro consolidado:{' '}
+            {isMaster ? 'Painel financeiro consolidado:' : 'Painel comercial e financeiro da carteira:'}{' '}
             <strong className="font-medium text-zinc-100 tabular-nums [font-variant-numeric:tabular-nums]">
-              {lastFetch
+              {effectiveLastFetch
                 ? minutosDesdeSync === 0
                   ? 'atualizado agora'
                   : `atualizado há ${minutosDesdeSync} min`
@@ -664,7 +701,7 @@ export default function DashboardMetricas() {
           </span>
           <StatusBadge
             variant="ativo"
-            label={isCached ? 'Consolidado' : 'Tempo Real'}
+            label={isMaster ? (isCached ? 'Consolidado' : 'Tempo Real') : 'Carteira Isolada'}
             showDot={false}
           />
         </div>
@@ -980,16 +1017,18 @@ export default function DashboardMetricas() {
       {/* INDICADORES OPERACIONAIS & RETENÇÃO                                 */}
       {/* =================================================================== */}
       <section className="space-y-6">
-        {isMaster && (
-          <div className="pt-2 border-t border-white/5">
-            <h2 className="text-sm font-semibold tracking-tight text-zinc-100">
-              Indicadores Operacionais de Aquisição &amp; Retenção
-            </h2>
-            <p className="text-xs text-zinc-400 mt-0.5">
-              Funil de testes, taxa de conversão, distribuição de planos e inadimplência
-            </p>
-          </div>
-        )}
+        <div className={isMaster ? 'pt-2 border-t border-white/5' : ''}>
+          <h2 className="text-sm font-semibold tracking-tight text-zinc-100">
+            {isMaster
+              ? 'Indicadores Operacionais de Aquisição & Retenção'
+              : 'Performance Comercial & Financeira da Carteira'}
+          </h2>
+          <p className="text-xs text-zinc-400 mt-0.5">
+            {isMaster
+              ? 'Funil de testes, taxa de conversão, distribuição de planos e inadimplência'
+              : 'Receita recorrente ativa, conversão de demonstrações, faturamento liquidado e retenção'}
+          </p>
+        </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
           <div className={kpiCardClass}>

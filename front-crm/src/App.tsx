@@ -108,14 +108,23 @@ const TAB_TO_ROUTE: Record<CrmTabId, string> = {
 }
 
 function resolveCurrentTab(pathname: string, isMaster: boolean): CrmTabId {
-  if (pathname.startsWith('/metricas')) return isMaster ? 'metrics' : 'clients'
-  if (pathname.startsWith('/retencao') || pathname.startsWith('/cliente/')) return 'clients'
+  if (pathname.startsWith('/metricas')) return 'metrics'
+  if (
+    pathname.startsWith('/retencao') ||
+    pathname.startsWith('/clientes') ||
+    pathname.startsWith('/painel') ||
+    pathname.startsWith('/revendedor') ||
+    pathname.startsWith('/parceiro') ||
+    pathname.startsWith('/cliente/')
+  ) {
+    return 'clients'
+  }
   if (pathname.startsWith('/funil')) return 'kanban'
   if (pathname.startsWith('/revendas') || pathname.startsWith('/equipe')) {
     return isMaster ? 'resellers' : 'clients'
   }
   if (pathname.startsWith('/configuracoes')) {
-    return isMaster ? 'settings' : 'clients'
+    return 'settings'
   }
   return isMaster ? 'metrics' : 'clients'
 }
@@ -139,12 +148,9 @@ function AuthenticatedWorkspace({ customChild }: { customChild?: ReactNode }) {
 
   const handleTabChange = useCallback(
     (tab: CrmTabId) => {
-      if (
-        !isMaster &&
-        (tab === 'metrics' || tab === 'resellers' || tab === 'settings')
-      ) {
+      if (!isMaster && tab === 'resellers') {
         toast.warning(
-          'Este módulo é exclusivo da conta Master.',
+          'A Gestão de Revendas é exclusiva da conta Master.',
           'Acesso Restrito'
         )
         navigate('/retencao', { replace: true })
@@ -289,15 +295,7 @@ function AppRoutes() {
             {/* Raiz dinâmica conforme perfil autenticado */}
             <Route path="/" element={<HomeRoute />} />
 
-            {/* Rotas Exclusivas Master envolvidas pelo MainLayout + Switch currentTab */}
-            <Route
-              path="/metricas"
-              element={
-                <MasterRoute moduleName="Inteligência & Métricas">
-                  <AuthenticatedWorkspace />
-                </MasterRoute>
-              }
-            />
+            {/* Rota Exclusiva Master: Gestão de Revendas */}
             <Route
               path="/revendas"
               element={
@@ -314,18 +312,60 @@ function AppRoutes() {
                 </MasterRoute>
               }
             />
+
+            {/* Rotas Operacionais Protegidas (Master & Revendedor com Isolamento Multi-Tenant) */}
+            <Route
+              path="/metricas"
+              element={
+                <ProtectedRoute>
+                  <AuthenticatedWorkspace />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/configuracoes"
               element={
-                <MasterRoute moduleName="Configurações Globais de API">
+                <ProtectedRoute>
                   <AuthenticatedWorkspace />
-                </MasterRoute>
+                </ProtectedRoute>
               }
             />
 
-            {/* Rotas Operacionais Protegidas envolvidas pelo MainLayout + Switch currentTab */}
+            {/* Rotas Operacionais Protegidas (Master & Revendedor) envolvidas pelo MainLayout Unificado */}
             <Route
               path="/retencao"
+              element={
+                <ProtectedRoute>
+                  <AuthenticatedWorkspace />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/clientes"
+              element={
+                <ProtectedRoute>
+                  <AuthenticatedWorkspace />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/painel"
+              element={
+                <ProtectedRoute>
+                  <AuthenticatedWorkspace />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/revendedor"
+              element={
+                <ProtectedRoute>
+                  <AuthenticatedWorkspace />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/parceiro"
               element={
                 <ProtectedRoute>
                   <AuthenticatedWorkspace />

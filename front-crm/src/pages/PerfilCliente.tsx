@@ -805,8 +805,8 @@ export default function PerfilCliente() {
               </h2>
 
               <div className="relative mt-4 space-y-2.5">
-                <div className="rounded-xl border border-white/5 bg-[#030509]/70 p-3">
-                  <div className="text-[11px] text-zinc-500">Login / Usuário</div>
+                <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-3">
+                  <div className="text-[11px] text-zinc-400">Login / Usuário</div>
                   <div className="mt-1 flex items-center justify-between">
                     <span className="font-mono text-sm text-zinc-100 tabular-nums">
                       {usuarioExibicao || '—'}
@@ -828,8 +828,8 @@ export default function PerfilCliente() {
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-white/5 bg-[#030509]/70 p-3">
-                  <div className="text-[11px] text-zinc-500">Senha</div>
+                <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-3">
+                  <div className="text-[11px] text-zinc-400">Senha</div>
                   <div className="mt-1 flex items-center justify-between">
                     <span className="font-mono text-sm text-zinc-100 tabular-nums">
                       {showPassword ? senhaExibicao || '—' : '••••••••'}
@@ -876,9 +876,9 @@ export default function PerfilCliente() {
 
               <div className="mt-4 space-y-4">
                 <div>
-                  <div className="text-xs text-zinc-500 mb-2">Servidores Conectados</div>
+                  <div className="text-xs text-zinc-400 mb-2">Servidores Conectados</div>
                   {servidoresList.length === 0 ? (
-                    <p className="rounded-xl border border-dashed border-white/10 bg-[#030509]/40 px-3 py-2.5 text-xs text-zinc-500">
+                    <p className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] px-3 py-2.5 text-xs text-zinc-400">
                       Nenhum servidor atribuído. Clique em &ldquo;Editar&rdquo; para vincular um servidor.
                     </p>
                   ) : (
@@ -890,10 +890,10 @@ export default function PerfilCliente() {
                   )}
                 </div>
 
-                <div className="pt-3 border-t border-white/5">
-                  <div className="text-xs text-zinc-500 mb-2">Aplicativos Instalados</div>
+                <div className="pt-3 border-t border-white/[0.07]">
+                  <div className="text-xs text-zinc-400 mb-2">Aplicativos Instalados</div>
                   {aplicativosList.length === 0 ? (
-                    <p className="rounded-xl border border-dashed border-white/10 bg-[#030509]/40 px-3 py-2.5 text-xs text-zinc-500">
+                    <p className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] px-3 py-2.5 text-xs text-zinc-400">
                       Nenhum aplicativo configurado (MAC / Device Key).
                     </p>
                   ) : (
@@ -901,7 +901,7 @@ export default function PerfilCliente() {
                       {aplicativosList.map((app, idx) => (
                         <div
                           key={idx}
-                          className="rounded-xl border border-white/5 bg-[#030509]/70 p-3 text-xs"
+                          className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-3 text-xs"
                         >
                           <div className="flex items-center gap-1.5 font-medium text-zinc-200">
                             <Smartphone className="h-3.5 w-3.5 text-cyan-400" />
@@ -956,7 +956,7 @@ export default function PerfilCliente() {
               >
                 <History className="h-3.5 w-3.5" />
                 <span>Timeline</span>
-                <span className="rounded-md border border-white/10 bg-[#030509]/80 px-1.5 py-0.5 text-[10px] font-mono text-zinc-300 tabular-nums [font-variant-numeric:tabular-nums]">
+                <span className="rounded-md border border-white/10 bg-white/[0.05] px-1.5 py-0.5 text-[10px] font-mono text-zinc-200 tabular-nums [font-variant-numeric:tabular-nums]">
                   {interacoes.length}
                 </span>
               </button>
@@ -972,7 +972,7 @@ export default function PerfilCliente() {
               >
                 <CreditCard className="h-3.5 w-3.5" />
                 <span>Financeiro</span>
-                <span className="rounded-md border border-white/10 bg-[#030509]/80 px-1.5 py-0.5 text-[10px] font-mono text-zinc-300 tabular-nums [font-variant-numeric:tabular-nums]">
+                <span className="rounded-md border border-white/10 bg-white/[0.05] px-1.5 py-0.5 text-[10px] font-mono text-zinc-200 tabular-nums [font-variant-numeric:tabular-nums]">
                   {faturas.length}
                 </span>
               </button>
@@ -1158,7 +1158,7 @@ export default function PerfilCliente() {
                     <div className="overflow-x-auto">
                       <table className="w-full text-left border-collapse">
                         <thead>
-                          <tr className="border-b border-white/5 bg-[#030509]/50 text-xs font-semibold text-zinc-400">
+                          <tr className="border-b border-white/[0.07] bg-white/[0.025] text-xs font-semibold text-zinc-300">
                             <th className="p-4">Vencimento</th>
                             <th className="p-4">Valor</th>
                             <th className="p-4">Status</th>
@@ -1238,7 +1238,7 @@ export default function PerfilCliente() {
             className="fixed inset-0 bg-black/75 backdrop-blur-md"
             onClick={() => setEditModalOpen(false)}
           />
-          <aside className="relative z-10 flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#06080d]/85 backdrop-blur-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.6)]">
+          <aside className="glass-modal relative z-10 flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl">
             <div className="pointer-events-none absolute -top-16 -right-16 h-44 w-44 rounded-full bg-radial from-cyan-500/10 to-transparent" />
 
             <div className="relative flex items-center justify-between border-b border-white/5 px-6 py-4">
@@ -1372,7 +1372,7 @@ export default function PerfilCliente() {
                   {editAplicativos.map((app, idx) => (
                     <div
                       key={idx}
-                      className="mt-2 rounded-xl border border-white/5 bg-[#030509]/70 p-3"
+                      className="mt-2 rounded-xl border border-white/[0.08] bg-white/[0.03] p-3"
                     >
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-xs font-medium text-cyan-300">App #{idx + 1}</span>
@@ -1496,18 +1496,18 @@ export default function PerfilCliente() {
                 )}
               </div>
 
-              <div className="mt-6 flex justify-end gap-2.5 border-t border-white/5 pt-4">
+              <div className="mt-6 flex justify-end gap-2.5 border-t border-white/[0.08] pt-4">
                 <button
                   type="button"
                   onClick={() => setEditModalOpen(false)}
-                  className="rounded-xl border border-white/10 bg-[#030509]/80 px-4 py-2 text-xs font-medium text-zinc-300 transition-all duration-300 hover:-translate-y-0.5 hover:border-white/20 hover:text-white"
+                  className="btn-enterprise-secondary"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={savingEdit}
-                  className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/30 bg-cyan-500/15 px-5 py-2 text-xs font-semibold text-cyan-100 shadow-[0_0_20px_rgba(34,211,238,0.12)] transition-all duration-300 hover:-translate-y-1 hover:border-cyan-500/30 hover:bg-cyan-500/25 hover:text-white hover:shadow-[0_0_20px_rgba(34,211,238,0.2)] disabled:opacity-50 disabled:hover:translate-y-0"
+                  className="btn-enterprise-primary px-5"
                 >
                   {savingEdit && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                   <span>Salvar Alterações</span>

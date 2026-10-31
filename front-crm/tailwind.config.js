@@ -11,7 +11,7 @@ export default {
       backgroundImage: {
         radial: 'radial-gradient(var(--tw-gradient-stops))',
         'cinema-neon':
-          "linear-gradient(135deg, rgba(3, 5, 11, 0.87) 0%, rgba(6, 9, 19, 0.79) 48%, rgba(4, 6, 13, 0.88) 100%), url('/bg-cinema-neon.png')",
+          "linear-gradient(180deg, rgba(0, 0, 0, 0.90) 0%, rgba(2, 4, 10, 0.85) 50%, rgba(0, 0, 0, 0.93) 100%), url('/bg-cinema-neon.png')",
       },
       keyframes: {
         'enter-fade': {

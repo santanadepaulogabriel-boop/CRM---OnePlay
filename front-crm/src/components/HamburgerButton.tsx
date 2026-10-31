@@ -12,7 +12,7 @@ export function HamburgerButton({ className = '' }: HamburgerButtonProps) {
     <button
       type="button"
       onClick={toggleSidebar}
-      className={`md:hidden flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-[#06080d]/60 backdrop-blur-2xl text-zinc-300 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-500/30 hover:text-zinc-100 hover:shadow-[0_0_20px_rgba(34,211,238,0.2)] shrink-0 ${className}`}
+      className={`md:hidden btn-enterprise-icon ${className}`}
       aria-label="Abrir menu lateral"
       title="Abrir menu"
     >
