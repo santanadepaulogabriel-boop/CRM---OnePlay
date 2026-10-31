@@ -17,7 +17,7 @@ import { StatusBadge } from '../components/ui/TierOnePrimitives'
 import { getSafeHomeRoute } from '../lib/multiTenant'
 
 const inputClass =
-  'w-full rounded-xl border border-white/10 bg-[#030509]/80 py-2.5 pl-9 pr-10 text-sm text-zinc-100 placeholder-zinc-500 outline-none backdrop-blur-xl transition-all duration-300 focus:border-cyan-500/40 focus:ring-2 focus:ring-cyan-500/20 focus:shadow-[0_0_20px_rgba(34,211,238,0.12)]'
+  'glass-input w-full rounded-xl py-2.5 pl-9 pr-10 text-sm text-zinc-100 placeholder-zinc-500 outline-none transition-all duration-300 focus:border-cyan-500/40 focus:ring-2 focus:ring-cyan-500/20 focus:shadow-[0_0_20px_rgba(34,211,238,0.12)]'
 
 export default function RedefinirSenha() {
   const navigate = useNavigate()
@@ -59,11 +59,11 @@ export default function RedefinirSenha() {
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#030509] text-zinc-100 flex items-center justify-center px-4 py-10 font-sans selection:bg-cyan-500/30 selection:text-cyan-100">
+    <main className="relative min-h-screen overflow-hidden bg-cinematic text-zinc-100 flex items-center justify-center px-4 py-10 font-sans selection:bg-cyan-500/30 selection:text-cyan-100">
       {/* Ambient Canvas Glows */}
       <div className="pointer-events-none fixed -top-40 left-1/2 -translate-x-1/2 h-[420px] w-[680px] rounded-full bg-radial from-cyan-500/12 to-transparent blur-3xl" />
 
-      <div className="relative w-full max-w-sm overflow-hidden rounded-2xl border border-white/5 bg-[#06080d]/60 p-7 backdrop-blur-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] transition-all duration-300 hover:border-cyan-500/20">
+      <div className="glass-card relative w-full max-w-sm overflow-hidden rounded-2xl p-7 transition-all duration-300 hover:border-cyan-500/25">
         {/* Corner Ambient Glow */}
         <div className="pointer-events-none absolute -top-16 -right-16 h-44 w-44 rounded-full bg-radial from-cyan-500/10 to-transparent" />
 

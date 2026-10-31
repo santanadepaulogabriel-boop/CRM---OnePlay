@@ -39,8 +39,6 @@ export function Sidebar() {
 
   const navContent = (
     <div className="relative flex h-full flex-col justify-between overflow-hidden">
-      <div className="pointer-events-none absolute -top-16 -left-16 h-44 w-44 rounded-full bg-radial from-cyan-500/10 to-transparent" />
-
       {/* Topo da Sidebar: Marca OnePlay */}
       <div className="shrink-0 relative z-10">
         <div className="flex h-16 items-center justify-between px-5 border-b border-white/5">
@@ -200,7 +198,7 @@ export function Sidebar() {
   return (
     <>
       {/* Sidebar Desktop */}
-      <aside className="hidden md:flex fixed inset-y-0 left-0 z-40 w-64 border-r border-white/5 bg-[#06080d]/60 backdrop-blur-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] flex-col justify-between">
+      <aside className="hidden md:flex fixed inset-y-0 left-0 z-40 w-64 border-r border-white/5 bg-[#06080d]/80 backdrop-blur-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.5)] flex-col justify-between">
         {navContent}
       </aside>
 

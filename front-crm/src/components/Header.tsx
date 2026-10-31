@@ -1,6 +1,5 @@
 import { LogOut, Sparkles } from 'lucide-react'
 import { signOut } from '../lib/auth'
-import { SystemClock } from './SystemClock'
 import { HamburgerButton } from './HamburgerButton'
 
 export { HamburgerButton }
@@ -17,7 +16,6 @@ export default function Header() {
           <span className="text-base font-semibold tracking-tight text-zinc-100">OnePlay CRM</span>
         </div>
         <div className="flex items-center gap-4">
-          <SystemClock />
           <button
             type="button"
             onClick={() => void signOut()}

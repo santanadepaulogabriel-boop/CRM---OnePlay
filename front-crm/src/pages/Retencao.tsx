@@ -15,26 +15,23 @@ import {
   RotateCw,
   Search,
   UserCheck,
-  Users,
   X,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
-import { Sidebar } from '../components/Sidebar'
 import { useCrmStore } from '../stores/useCrmStore'
 import {
   getSafeHomeRoute,
+  isMasterUser,
   isUnauthorizedSupabaseError,
   updateClienteMultiTenant,
 } from '../lib/multiTenant'
 import { getErrorMessage } from '../lib/errorHandler'
-import { SmartBanner } from '../components/SmartBanner'
-import { SystemClock } from '../components/SystemClock'
 import { useToast } from '../contexts/ToastContext'
 import { gerarLinkWhatsApp } from '../lib/whatsapp'
 import { useFeatureGating } from '../hooks/useFeatureGating'
-import { HamburgerButton } from '../components/HamburgerButton'
 import NovoClienteModal from '../components/NovoClienteModal'
+import { DashboardMetrics } from '../components/DashboardMetrics'
 import {
   EmptyState,
   StatusBadge,
@@ -248,13 +245,13 @@ export default function Retencao() {
           prev.map((item) =>
             String(item.id) === String(id)
               ? {
-                  ...item,
-                  ...res.cliente,
-                  em_suporte: false,
-                  ...(String(item[DB.estagio] || '').toLowerCase() === 'suporte'
-                    ? { [DB.estagio]: 'Cliente' }
-                    : {}),
-                }
+                ...item,
+                ...res.cliente,
+                em_suporte: false,
+                ...(String(item[DB.estagio] || '').toLowerCase() === 'suporte'
+                  ? { [DB.estagio]: 'Cliente' }
+                  : {}),
+              }
               : item
           )
         )
@@ -282,10 +279,10 @@ export default function Retencao() {
       typeof estadoAtual === 'boolean'
         ? estadoAtual
         : Boolean(
-            clienteAlvo?.em_suporte ||
-              String(clienteAlvo?.[DB.estagio] || '').toLowerCase() === 'suporte' ||
-              String(clienteAlvo?.[DB.status] || '').toLowerCase() === 'suporte'
-          )
+          clienteAlvo?.em_suporte ||
+          String(clienteAlvo?.[DB.estagio] || '').toLowerCase() === 'suporte' ||
+          String(clienteAlvo?.[DB.status] || '').toLowerCase() === 'suporte'
+        )
 
     const novoEstado = !isAtualmenteSuporte
     setUpdatingSuporteId(id)
@@ -353,8 +350,8 @@ export default function Retencao() {
 
     const isSuporteAtual = Boolean(
       cliente.em_suporte ||
-        String(cliente[DB.estagio] || '').toLowerCase() === 'suporte' ||
-        String(cliente[DB.status] || '').toLowerCase() === 'suporte'
+      String(cliente[DB.estagio] || '').toLowerCase() === 'suporte' ||
+      String(cliente[DB.status] || '').toLowerCase() === 'suporte'
     )
 
     try {
@@ -373,8 +370,8 @@ export default function Retencao() {
         colunaDestino === 'a_vencer'
           ? 'alerta'
           : colunaDestino === 'vencidos'
-          ? 'inativo'
-          : 'ativo'
+            ? 'inativo'
+            : 'ativo'
 
       const patch = { status: statusMapeado }
       const { error: updErr, unauthorized } = await updateClienteMultiTenant(
@@ -429,6 +426,9 @@ export default function Retencao() {
     const vencidos: ClienteItem[] = []
     const suporte: ClienteItem[] = []
 
+    const hoje = new Date()
+    hoje.setHours(0, 0, 0, 0)
+
     lista.forEach((c) => {
       const isEmSuporte =
         Boolean(c.em_suporte) ||
@@ -440,13 +440,33 @@ export default function Retencao() {
         return
       }
 
-      const statusRaw = c.Status ?? c.status ?? c[DB.status]
-      const statusLower = typeof statusRaw === 'string' ? statusRaw.trim().toLowerCase() : ''
+      const dataVencStr = c[DB.vencimento] || c.data_vencimento
+      if (!dataVencStr) {
+        ativos.push(c)
+        return
+      }
 
-      if (statusLower === 'alerta_vencimento' || statusLower === 'alerta') {
-        aVencer.push(c)
-      } else if (statusLower === 'inativo' || statusLower === 'vencido') {
+      let dataFormatada = String(dataVencStr)
+      if (dataFormatada.includes('/')) {
+        const [dia, mes, ano] = dataFormatada.split('/')
+        dataFormatada = `${ano}-${mes}-${dia}`
+      }
+
+      const dataVenc = new Date(dataFormatada)
+      dataVenc.setHours(0, 0, 0, 0)
+
+      if (isNaN(dataVenc.getTime())) {
+        ativos.push(c)
+        return
+      }
+
+      const diffTime = dataVenc.getTime() - hoje.getTime()
+      const diasRestantes = Math.ceil(diffTime / (1000 * 3600 * 24))
+
+      if (diasRestantes < 0) {
         vencidos.push(c)
+      } else if (diasRestantes <= 7) {
+        aVencer.push(c)
       } else {
         ativos.push(c)
       }
@@ -455,97 +475,81 @@ export default function Retencao() {
     return { ativos, aVencer, vencidos, suporte }
   }, [clientes, search])
 
+  const creditosStore = useCrmStore((state) => state.creditos)
+  const creditosDisponiveis =
+    typeof creditosStore === 'number' ? creditosStore : Number(usuario?.creditos ?? 0)
+  const isMaster = isMasterUser(usuario)
+
   return (
-    <div className="relative flex min-h-screen bg-[#030509] text-zinc-100 font-sans selection:bg-cyan-500/30 selection:text-cyan-100">
-      <div className="pointer-events-none fixed -top-40 right-0 h-96 w-96 rounded-full bg-radial from-cyan-500/10 to-transparent" />
+    <div className="relative flex flex-1 min-w-0 flex-col w-full">
+      {/* Barra de Ferramentas Interna de Clientes & Renovações */}
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="relative w-full sm:max-w-xs lg:max-w-md">
+          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por cliente, WhatsApp, servidor..."
+            className="glass-input h-9 w-full rounded-xl pl-9 pr-8 text-xs text-zinc-100 placeholder-zinc-500 outline-none"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              aria-label="Limpar busca"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-200 transition-colors"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
 
-      <Sidebar />
+        <div className="flex items-center gap-2.5 self-end sm:self-auto shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              if (!protegerAcao()) return
+              setIsNovoClienteOpen(true)
+            }}
+            className="btn-enterprise-primary h-9"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span>Novo Cliente</span>
+          </button>
 
-      <div className="relative flex-1 min-w-0 pl-0 md:pl-64 flex flex-col min-h-screen">
-        <SmartBanner />
+          <button
+            type="button"
+            onClick={() => void carregarClientes()}
+            title="Recarregar clientes"
+            className="btn-enterprise-icon"
+          >
+            <RotateCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin text-cyan-400' : ''}`} />
+          </button>
+        </div>
+      </div>
 
-        <header className="sticky top-0 z-30 border-b border-white/5 bg-[#06080d]/60 backdrop-blur-2xl">
-          <div className="w-full max-w-[1600px] mx-auto flex flex-col md:flex-row md:h-16 md:items-center justify-between gap-4 px-6 lg:px-10 py-3 md:py-0">
-            <div className="flex items-center gap-3">
-              <HamburgerButton />
-              <div>
-                <div className="flex items-center gap-2.5">
-                  <h1 className="text-lg font-semibold tracking-tight text-zinc-100 flex items-center gap-2">
-                    <Users className="h-4 w-4 text-cyan-400" />
-                    <span>Clientes &amp; Renovações</span>
-                  </h1>
-                  <StatusBadge variant="ativo" label="Retenção" />
-                </div>
-                <p className="text-xs text-zinc-400 mt-0.5">
-                  Gestão da carteira ativa, vencimentos próximos e chamados de suporte
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2.5">
-              <div className="relative min-w-[240px] sm:min-w-[300px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Buscar por cliente, WhatsApp, servidor..."
-                  className="w-full rounded-xl border border-white/10 bg-[#030509]/70 pl-9 pr-8 py-1.5 text-xs text-zinc-100 placeholder-zinc-500 outline-none transition focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/20"
-                />
-                {search && (
-                  <button
-                    type="button"
-                    onClick={() => setSearch('')}
-                    aria-label="Limpar busca"
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-200"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  if (!protegerAcao()) return
-                  setIsNovoClienteOpen(true)
-                }}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-cyan-500/30 bg-cyan-500/15 px-3.5 py-1.5 text-xs font-semibold text-cyan-200 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/50 hover:bg-cyan-500/25 hover:text-white hover:shadow-[0_0_20px_rgba(34,211,238,0.2)]"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                <span>Novo Cliente</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => void carregarClientes()}
-                title="Recarregar clientes"
-                className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-zinc-300 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-500/30 hover:text-cyan-300 hover:shadow-[0_0_20px_rgba(34,211,238,0.2)]"
-              >
-                <RotateCw className="h-3.5 w-3.5" />
-              </button>
-
-              <div className="hidden xl:flex items-center pl-2">
-                <SystemClock />
-              </div>
-            </div>
+      {error && (
+        <div className="mb-5">
+          <div className="flex items-center gap-2 rounded-2xl border border-red-500/30 bg-red-500/10 backdrop-blur-xl px-4 py-2.5 text-xs text-red-400">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>{error}</span>
           </div>
-        </header>
+        </div>
+      )}
 
-        {error && (
-          <div className="w-full max-w-[1600px] mx-auto px-6 lg:px-10 pt-4">
-            <div className="flex items-center gap-2 rounded-2xl border border-red-500/30 bg-red-500/10 backdrop-blur-xl px-4 py-2.5 text-xs text-red-400">
-              <AlertCircle className="h-4 w-4 shrink-0" />
-              <span>{error}</span>
-            </div>
-          </div>
-        )}
-
-        <main className="flex-1 w-full max-w-[1600px] mx-auto p-6 lg:p-10">
-          {loading ? (
-            <RetencaoSkeleton />
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 items-start">
+      <div className="flex-1 w-full min-w-0">
+        <DashboardMetrics
+          totalClientes={clientes.length}
+          clientesAtivos={kanban.ativos.length + kanban.aVencer.length}
+          creditosDisponiveis={isMaster ? 'Ilimitado' : creditosDisponiveis}
+          statusSistema={isMaster ? 'Master Enterprise' : 'Carteira Exclusiva'}
+        />
+        {loading ? (
+          <RetencaoSkeleton />
+        ) : (
+          <div className="kanban-scroll w-full overflow-x-auto pb-2 scroll-smooth">
+            <div className="flex flex-nowrap items-stretch gap-4 lg:gap-5 min-w-full">
               <KanbanColumn
                 colunaKey="ativos"
                 titulo="Ativos"
@@ -652,8 +656,8 @@ export default function Retencao() {
                 ))}
               </KanbanColumn>
             </div>
-          )}
-        </main>
+          </div>
+        )}
       </div>
 
       <NovoClienteModal
@@ -707,11 +711,10 @@ function KanbanColumn({
         setIsDragOver(false)
         onDrop(colunaKey, e)
       }}
-      className={`relative overflow-hidden flex flex-col rounded-2xl border backdrop-blur-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] p-4 min-h-[540px] transition-all duration-300 ${
-        isDragOver
-          ? 'border-cyan-500/50 bg-[#06080d]/80 ring-2 ring-cyan-500/20 shadow-[0_0_24px_rgba(34,211,238,0.18)]'
-          : 'border-white/5 bg-[#06080d]/60'
-      }`}
+      className={`glass-card relative overflow-hidden flex flex-col w-[296px] min-w-[296px] flex-1 shrink-0 rounded-2xl p-4 min-h-[520px] max-h-[calc(100vh-18rem)] transition-all duration-300 ${isDragOver
+          ? 'border-cyan-500/50 ring-2 ring-cyan-500/20 shadow-[0_0_24px_rgba(34,211,238,0.18)]'
+          : ''
+        }`}
     >
       <div className="pointer-events-none absolute -top-12 -right-12 h-32 w-32 rounded-full bg-radial from-cyan-500/10 to-transparent" />
 
@@ -826,13 +829,11 @@ function ClientKanbanCard({
       draggable
       onDragStart={(e) => onDragStart(e, cliente.id)}
       onDragEnd={onDragEnd}
-      className={`group relative rounded-2xl border backdrop-blur-2xl p-4 shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] transition-all duration-300 hover:-translate-y-1 hover:border-cyan-500/30 hover:shadow-[0_0_20px_rgba(34,211,238,0.2)] cursor-grab active:cursor-grabbing ${
-        isSuporteAtivo
-          ? 'border-violet-500/30 bg-[#06080d]/60'
-          : 'border-white/5 bg-[#06080d]/60'
-      }`}
+      className={`glass-card neon-hover group relative rounded-2xl p-4 cursor-grab active:cursor-grabbing ${isSuporteAtivo
+          ? '!border-violet-500/35'
+          : ''
+        }`}
     >
-      {/* Topo: Nome Principal + Ações Secundárias Discretas */}
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <Link
@@ -854,17 +855,15 @@ function ClientKanbanCard({
           </div>
         </div>
 
-        {/* Botão Suporte + Menu (...) */}
         <div className="relative flex items-center gap-1 shrink-0">
           <button
             type="button"
             disabled={isUpdatingSuporte}
             onClick={() => onToggleSuporte(cliente.id, isSuporteAtivo)}
-            className={`rounded-lg p-1.5 transition-all ${
-              isSuporteAtivo
+            className={`rounded-lg p-1.5 transition-all ${isSuporteAtivo
                 ? 'border border-violet-500/40 bg-violet-500/15 text-violet-300'
                 : 'text-zinc-500 opacity-0 group-hover:opacity-100 hover:bg-white/5 hover:text-violet-300'
-            }`}
+              }`}
             title={
               isSuporteAtivo
                 ? 'Resolver incidente e retornar à carteira'
@@ -930,19 +929,18 @@ function ClientKanbanCard({
         </div>
       </div>
 
-      {/* Vencimento + StatusBadge com LED Pulsante */}
       <div className="mt-3 flex items-center justify-between text-xs">
         <span className="text-zinc-400 flex items-center gap-1 tabular-nums [font-variant-numeric:tabular-nums]">
           <Clock className="h-3 w-3 text-cyan-400/70 shrink-0" />
           <span>Venc. {dataFormatada}</span>
         </span>
+
         <StatusBadge
           variant={isSuporteAtivo ? 'suporte' : statusInfo.variant}
           label={isSuporteAtivo ? 'Suporte' : statusInfo.label}
         />
       </div>
 
-      {/* Badges Minimalistas: Plano, Valor (tabular-nums) e Servidor */}
       <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
         <span className="rounded-md border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[11px] font-medium text-zinc-200">
           {plano}
@@ -967,7 +965,6 @@ function ClientKanbanCard({
         ))}
       </div>
 
-      {/* Rodapé: WhatsApp + Renovar 1-Clique */}
       <div className="mt-3.5 pt-3 border-t border-white/5 flex items-center gap-2">
         <a
           href={linkWhatsApp || '#'}
@@ -979,11 +976,10 @@ function ClientKanbanCard({
               toast.warning(`O cliente ${nomeCliente} não possui telefone de WhatsApp cadastrado.`)
             }
           }}
-          className={`inline-flex items-center justify-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-medium transition-all duration-300 hover:-translate-y-0.5 shrink-0 ${
-            isDestaqueWhatsApp
+          className={`inline-flex items-center justify-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-medium transition-all duration-300 hover:-translate-y-0.5 shrink-0 ${isDestaqueWhatsApp
               ? 'border border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25 hover:shadow-[0_0_16px_rgba(52,211,153,0.25)]'
               : 'border border-white/10 bg-white/[0.03] text-zinc-300 hover:border-cyan-500/30 hover:text-zinc-100'
-          }`}
+            }`}
           title="Disparar mensagem no WhatsApp"
         >
           <MessageCircle className="h-3.5 w-3.5 text-emerald-400" />

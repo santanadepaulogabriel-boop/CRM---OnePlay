@@ -26,9 +26,7 @@ import {
 import { supabase } from '../lib/supabase'
 import { criarAgenteComCredenciais, listarAgentes, useAgente } from '../lib/agente'
 import type { Agente, NivelAcesso } from '../lib/agente'
-import { Sidebar } from '../components/Sidebar'
 import { GerirCreditosModal } from '../components/GerirCreditosModal'
-import { SystemClock } from '../components/SystemClock'
 import { getErrorMessage } from '../lib/errorHandler'
 import { HamburgerButton } from '../components/HamburgerButton'
 import {
@@ -422,13 +420,10 @@ export default function GestaoEquipa() {
 
   if (loadingAgente) {
     return (
-      <div className="flex min-h-screen bg-[#030509] text-zinc-100">
-        <Sidebar />
-        <div className="flex-1 pl-0 md:pl-64 p-6 lg:p-10">
-          <div className="w-full max-w-[1600px] mx-auto space-y-4 animate-pulse">
-            <div className="h-10 w-64 rounded-xl bg-white/10" />
-            <div className="h-96 w-full rounded-2xl bg-[#06080d]/60 border border-white/5" />
-          </div>
+      <div className="flex flex-1 min-w-0 flex-col p-6 lg:p-10">
+        <div className="w-full max-w-[1600px] mx-auto space-y-4 animate-pulse">
+          <div className="h-10 w-64 rounded-xl bg-white/10" />
+          <div className="h-96 w-full rounded-2xl bg-[#06080d]/60 border border-white/5" />
         </div>
       </div>
     )
@@ -439,14 +434,10 @@ export default function GestaoEquipa() {
   }
 
   return (
-    <div className="relative flex min-h-screen bg-[#030509] text-zinc-100">
-      <div className="pointer-events-none fixed -top-40 right-0 h-96 w-96 rounded-full bg-radial from-cyan-500/10 to-transparent" />
-
-      <Sidebar />
-
-      <div className="relative flex-1 min-w-0 pl-0 md:pl-64 flex flex-col min-h-screen">
+    <div className="relative flex flex-1 min-w-0 flex-col">
+      <div className="relative flex flex-1 min-w-0 flex-col">
         {/* Header Superior Glassmorphic */}
-        <header className="sticky top-0 z-30 border-b border-white/5 bg-[#06080d]/60 backdrop-blur-2xl">
+        <header className="sticky top-0 z-30 border-b border-white/5 bg-[#06080d]/75 backdrop-blur-2xl">
           <div className="w-full max-w-[1600px] mx-auto flex flex-col sm:flex-row sm:h-16 items-start sm:items-center justify-between gap-4 px-6 lg:px-10 py-3 sm:py-0">
             <div className="flex items-center gap-3">
               <HamburgerButton />
@@ -479,9 +470,6 @@ export default function GestaoEquipa() {
                 <Plus className="h-4 w-4" />
                 <span>Nova Revenda</span>
               </button>
-              <div className="hidden sm:flex items-center pl-2">
-                <SystemClock />
-              </div>
             </div>
           </div>
         </header>

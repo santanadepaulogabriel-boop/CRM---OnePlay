@@ -100,10 +100,10 @@ interface Fatura {
 const brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 
 const glassCardClass =
-  'relative overflow-hidden rounded-2xl border border-white/5 bg-[#06080d]/60 backdrop-blur-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.4)]'
+  'glass-card relative overflow-hidden rounded-2xl'
 
 const inputClass =
-  'w-full rounded-xl border border-white/10 bg-[#030509]/80 px-3.5 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 outline-none backdrop-blur-xl transition-all duration-300 focus:border-cyan-500/40 focus:ring-2 focus:ring-cyan-500/20 focus:shadow-[0_0_20px_rgba(34,211,238,0.12)]'
+  'glass-input w-full rounded-xl px-3.5 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 outline-none transition-all duration-300 focus:border-cyan-500/40 focus:ring-2 focus:ring-cyan-500/20 focus:shadow-[0_0_20px_rgba(34,211,238,0.12)]'
 
 function getClienteStatusVariant(raw?: string): { variant: StatusSemanticVariant; label: string } {
   const s = (raw || 'ativo').trim().toLowerCase()
@@ -605,18 +605,18 @@ export default function PerfilCliente() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#030509] text-zinc-100">
-        <div className="h-16 border-b border-white/5 bg-[#06080d]/60 backdrop-blur-2xl px-6 lg:px-10 flex items-center">
-          <div className="h-6 w-48 rounded-lg bg-white/5 animate-pulse" />
+      <div className="w-full text-zinc-100 space-y-6">
+        <div className="h-14 glass-card rounded-2xl px-5 flex items-center">
+          <div className="h-5 w-48 rounded-lg bg-white/10 animate-pulse" />
         </div>
-        <div className="w-full max-w-[1600px] mx-auto p-6 lg:p-10 grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-5 space-y-5">
-            <div className="h-64 rounded-2xl border border-white/5 bg-[#06080d]/60 animate-pulse" />
-            <div className="h-44 rounded-2xl border border-white/5 bg-[#06080d]/60 animate-pulse" />
+            <div className="h-64 rounded-2xl glass-card animate-pulse" />
+            <div className="h-44 rounded-2xl glass-card animate-pulse" />
           </div>
           <div className="lg:col-span-7 space-y-5">
-            <div className="h-12 rounded-2xl border border-white/5 bg-[#06080d]/60 animate-pulse" />
-            <div className="h-80 rounded-2xl border border-white/5 bg-[#06080d]/60 animate-pulse" />
+            <div className="h-12 rounded-2xl glass-card animate-pulse" />
+            <div className="h-80 rounded-2xl glass-card animate-pulse" />
           </div>
         </div>
       </div>
@@ -625,7 +625,7 @@ export default function PerfilCliente() {
 
   if (error || !cliente) {
     return (
-      <div className="min-h-screen bg-[#030509] px-6 py-16 text-zinc-100 flex items-center justify-center">
+      <div className="w-full py-12 text-zinc-100 flex items-center justify-center">
         <div className="w-full max-w-md">
           <EmptyState
             icon={AlertCircle}
@@ -638,7 +638,7 @@ export default function PerfilCliente() {
               <button
                 type="button"
                 onClick={() => navigate(getSafeHomeRoute(usuario))}
-                className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-[#06080d]/80 px-4 py-2 text-xs font-medium text-zinc-200 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-500/30 hover:shadow-[0_0_20px_rgba(34,211,238,0.2)]"
+                className="btn-enterprise-secondary"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
                 <span>Voltar ao Início</span>
@@ -675,69 +675,62 @@ export default function PerfilCliente() {
     : null
 
   return (
-    <div className="relative min-h-screen bg-[#030509] text-zinc-100 font-sans selection:bg-cyan-500/30 selection:text-cyan-100">
-      {/* Ambient Background Glow */}
-      <div className="pointer-events-none fixed -top-40 right-0 h-[400px] w-[520px] rounded-full bg-radial from-cyan-500/10 to-transparent blur-3xl" />
+    <div className="relative flex flex-1 min-w-0 flex-col w-full">
+      {/* Barra Interna de Identificação do Assinante */}
+      <div className="mb-6 glass-card rounded-2xl px-4 sm:px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
+        <div className="flex items-center gap-3.5 min-w-0">
+          <Link to="/retencao" className="btn-enterprise-secondary !py-1.5 !px-3 shrink-0">
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span>Voltar</span>
+          </Link>
 
-      <header className="sticky top-0 z-30 border-b border-white/5 bg-[#06080d]/70 backdrop-blur-2xl">
-        <div className="w-full max-w-[1600px] mx-auto flex flex-col sm:flex-row sm:h-16 items-start sm:items-center justify-between gap-4 px-6 lg:px-10 py-3 sm:py-0">
-          <div className="flex items-center gap-3.5">
-            <Link
-              to="/retencao"
-              className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-[#06080d]/60 px-3 py-1.5 text-xs font-medium text-zinc-300 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-500/30 hover:text-zinc-100 hover:shadow-[0_0_20px_rgba(34,211,238,0.2)] shrink-0"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              <span>Voltar</span>
-            </Link>
+          <div className="h-5 w-px bg-white/10 hidden sm:block shrink-0" />
 
-            <div className="h-5 w-px bg-white/10 hidden sm:block" />
-
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-cyan-500/25 bg-cyan-500/10 text-xs font-semibold text-cyan-300 shadow-[0_0_16px_rgba(34,211,238,0.15)] shrink-0">
-                {nomeExibicao.charAt(0).toUpperCase()}
-              </div>
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-base font-semibold tracking-tight text-zinc-100">
-                    {nomeExibicao}
-                  </h1>
-                  {cliente.whatsapp && (
-                    <span className="text-xs text-zinc-400 font-mono tabular-nums [font-variant-numeric:tabular-nums]">
-                      {cliente.whatsapp}
-                    </span>
-                  )}
-                  <StatusBadge variant={statusInfo.variant} label={statusInfo.label} />
-                  <StatusBadge variant="neutral" label={estagio} showDot={false} />
-                </div>
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-cyan-500/25 bg-cyan-500/10 text-xs font-semibold text-cyan-300 shadow-[0_0_16px_rgba(34,211,238,0.15)] shrink-0">
+              {nomeExibicao.charAt(0).toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-sm sm:text-base font-semibold tracking-tight text-zinc-100 truncate">
+                  {nomeExibicao}
+                </h2>
+                {cliente.whatsapp && (
+                  <span className="text-xs text-zinc-400 font-mono tabular-nums [font-variant-numeric:tabular-nums]">
+                    {cliente.whatsapp}
+                  </span>
+                )}
+                <StatusBadge variant={statusInfo.variant} label={statusInfo.label} />
+                <StatusBadge variant="neutral" label={estagio} showDot={false} />
               </div>
             </div>
           </div>
-
-          <div className="flex items-center gap-2 self-end sm:self-auto">
-            {whatsappUrl && (
-              <a
-                href={whatsappUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/15 px-3.5 py-1.5 text-xs font-medium text-emerald-300 transition-all duration-300 hover:-translate-y-1 hover:border-emerald-400/50 hover:bg-emerald-500/25 hover:shadow-[0_0_20px_rgba(52,211,153,0.2)]"
-              >
-                <MessageCircle className="h-3.5 w-3.5" />
-                <span>WhatsApp</span>
-              </a>
-            )}
-            <button
-              type="button"
-              onClick={() => void loadData()}
-              title="Recarregar"
-              className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-[#06080d]/60 text-zinc-400 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-500/30 hover:text-cyan-300 hover:shadow-[0_0_20px_rgba(34,211,238,0.2)]"
-            >
-              <RefreshCw className="h-3.5 w-3.5" />
-            </button>
-          </div>
         </div>
-      </header>
 
-      <main className="relative w-full max-w-[1600px] mx-auto p-6 lg:p-10">
+        <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+          {whatsappUrl && (
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-enterprise-emerald !py-1.5 !px-3.5"
+            >
+              <MessageCircle className="h-3.5 w-3.5" />
+              <span>WhatsApp</span>
+            </a>
+          )}
+          <button
+            type="button"
+            onClick={() => void loadData()}
+            title="Recarregar"
+            className="btn-enterprise-icon"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+
+      <div className="relative w-full">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
           {/* COLUNA ESQUERDA */}
           <div className="space-y-5 lg:col-span-5">
@@ -1232,7 +1225,7 @@ export default function PerfilCliente() {
             )}
           </div>
         </div>
-      </main>
+      </div>
 
       {/* Modal: Editar Dados do Cliente */}
       {editModalOpen && (

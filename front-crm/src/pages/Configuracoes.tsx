@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import { Link, Navigate } from 'react-router-dom'
+import { Navigate } from 'react-router-dom'
 import {
   Activity,
   AlertCircle,
-  ArrowLeft,
   Check,
   CheckCircle2,
   Clock,
@@ -21,7 +20,6 @@ import {
   Power,
   RefreshCw,
   Server,
-  Settings,
   ShieldCheck,
   Sparkles,
   Trash2,
@@ -29,7 +27,6 @@ import {
   Zap,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import { Sidebar } from '../components/Sidebar'
 import {
   atualizarStatusServidor,
   criarServidor,
@@ -40,9 +37,6 @@ import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
 import { useCrmStore } from '../stores/useCrmStore'
 import { getSafeHomeRoute, isMasterUser } from '../lib/multiTenant'
-import { SmartBanner } from '../components/SmartBanner'
-import { SystemClock } from '../components/SystemClock'
-import { HamburgerButton } from '../components/HamburgerButton'
 import { EmptyState, StatusBadge } from '../components/ui/TierOnePrimitives'
 
 const SQL_MIGRATION = `-- Execute este comando no SQL Editor do seu Supabase:
@@ -63,10 +57,10 @@ CREATE POLICY "tenant_servidores_update" ON servidores FOR UPDATE TO authenticat
 CREATE POLICY "tenant_servidores_delete" ON servidores FOR DELETE TO authenticated USING (tenant_id = auth.uid());`
 
 const inputClass =
-  'w-full rounded-xl border border-white/10 bg-[#030509]/70 px-3.5 py-2 text-xs text-zinc-100 placeholder-zinc-500 outline-none transition focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/20'
+  'glass-input w-full rounded-xl px-3.5 py-2 text-xs text-zinc-100 placeholder-zinc-500 outline-none transition focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/20'
 
 const glassPanel =
-  'relative overflow-hidden rounded-2xl border border-white/5 bg-[#06080d]/60 backdrop-blur-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.4)]'
+  'glass-card relative overflow-hidden rounded-2xl'
 
 const neonButton =
   'inline-flex items-center gap-1.5 rounded-xl border border-cyan-500/30 bg-cyan-500/15 px-3.5 py-1.5 text-xs font-semibold text-cyan-200 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/50 hover:bg-cyan-500/25 hover:text-white hover:shadow-[0_0_20px_rgba(34,211,238,0.2)] disabled:opacity-50 disabled:hover:translate-y-0'
@@ -318,91 +312,17 @@ export default function Configuracoes() {
   }
 
   return (
-    <div className="relative min-h-screen bg-[#030509] text-zinc-100 flex font-sans selection:bg-cyan-500/30 selection:text-cyan-100">
-      <div className="pointer-events-none fixed -top-40 right-0 h-96 w-96 rounded-full bg-radial from-cyan-500/10 to-transparent" />
-
-      <Sidebar />
-
-      <div className="relative flex-1 min-w-0 pl-0 md:pl-64 flex flex-col min-h-screen">
-        <SmartBanner />
-
-        <header className="sticky top-0 z-30 border-b border-white/5 bg-[#06080d]/60 backdrop-blur-2xl">
-          <div className="w-full max-w-[1600px] mx-auto flex flex-col sm:flex-row sm:h-16 items-start sm:items-center justify-between gap-4 px-6 lg:px-10 py-3 sm:py-0">
-            <div className="flex items-center gap-3">
-              <HamburgerButton />
-              <Link to="/" className={`${secondaryButton} shrink-0`}>
-                <ArrowLeft className="h-3.5 w-3.5" />
-                <span>Início</span>
-              </Link>
-              <div>
-                <h1 className="text-lg font-semibold tracking-tight text-zinc-100 flex items-center gap-2">
-                  <Settings className="h-4 w-4 text-cyan-400" />
-                  <span>Configurações Globais de API</span>
-                </h1>
-                <p className="text-xs text-zinc-400 mt-0.5">
-                  Servidores IPTV, chaves de API, políticas operacionais e segurança
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2.5 self-end sm:self-auto flex-wrap">
-              <button
-                type="button"
-                onClick={() => void carregarServidores()}
-                disabled={loading}
-                title="Recarregar servidores"
-                className={secondaryButton}
-              >
-                <RefreshCw className={`h-3.5 w-3.5 text-cyan-400 ${loading ? 'animate-spin' : ''}`} />
-                <span>Atualizar</span>
-              </button>
-
-              {abaAtiva === 'servidores' && (
-                <button type="button" onClick={() => setModalOpen(true)} className={neonButton}>
-                  <Plus className="h-3.5 w-3.5" />
-                  <span>Adicionar Servidor</span>
-                </button>
-              )}
-
-              {abaAtiva === 'api' && !apiKeyToken && (
-                <button
-                  type="button"
-                  onClick={() => void handleGerarToken()}
-                  disabled={gerandoApiKey}
-                  className={neonButton}
-                >
-                  {gerandoApiKey ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Sparkles className="h-3.5 w-3.5" />
-                  )}
-                  <span>Gerar Token Único</span>
-                </button>
-              )}
-
-              {abaAtiva === 'api' && apiKeyToken && (
-                <button type="button" onClick={handleCopiarToken} className={neonButton}>
-                  <Copy className="h-3.5 w-3.5" />
-                  <span>Copiar Token</span>
-                </button>
-              )}
-
-              <div className="hidden xl:flex items-center pl-2">
-                <SystemClock />
-              </div>
-            </div>
-          </div>
-        </header>
-
-        {/* Abas de Navegação Glassmorphic */}
-        <div className="border-b border-white/5 bg-[#06080d]/40 backdrop-blur-xl">
-          <div className="w-full max-w-[1600px] mx-auto px-6 lg:px-10 flex items-center gap-2 overflow-x-auto py-2.5">
+    <div className="relative flex flex-1 min-w-0 flex-col w-full">
+      <div className="relative flex flex-1 min-w-0 flex-col w-full">
+        {/* Barra de Abas e Ações Internas de Configuração */}
+        <div className="mb-6 glass-card rounded-2xl p-2 flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 lg:pb-0">
             <button
               type="button"
               onClick={() => setAbaAtiva('servidores')}
-              className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-medium transition-all duration-300 whitespace-nowrap ${
+              className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-medium transition-all duration-200 whitespace-nowrap ${
                 abaAtiva === 'servidores'
-                  ? 'border border-cyan-500/30 bg-cyan-500/10 text-cyan-200 shadow-[0_0_20px_rgba(34,211,238,0.14)]'
+                  ? 'border border-cyan-500/35 bg-cyan-500/15 text-cyan-200 shadow-[0_0_18px_rgba(34,211,238,0.14)]'
                   : 'border border-transparent text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-100'
               }`}
             >
@@ -416,9 +336,9 @@ export default function Configuracoes() {
             <button
               type="button"
               onClick={() => setAbaAtiva('api')}
-              className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-medium transition-all duration-300 whitespace-nowrap ${
+              className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-medium transition-all duration-200 whitespace-nowrap ${
                 abaAtiva === 'api'
-                  ? 'border border-cyan-500/30 bg-cyan-500/10 text-cyan-200 shadow-[0_0_20px_rgba(34,211,238,0.14)]'
+                  ? 'border border-cyan-500/35 bg-cyan-500/15 text-cyan-200 shadow-[0_0_18px_rgba(34,211,238,0.14)]'
                   : 'border border-transparent text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-100'
               }`}
             >
@@ -429,9 +349,9 @@ export default function Configuracoes() {
             <button
               type="button"
               onClick={() => setAbaAtiva('regras')}
-              className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-medium transition-all duration-300 whitespace-nowrap ${
+              className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-medium transition-all duration-200 whitespace-nowrap ${
                 abaAtiva === 'regras'
-                  ? 'border border-cyan-500/30 bg-cyan-500/10 text-cyan-200 shadow-[0_0_20px_rgba(34,211,238,0.14)]'
+                  ? 'border border-cyan-500/35 bg-cyan-500/15 text-cyan-200 shadow-[0_0_18px_rgba(34,211,238,0.14)]'
                   : 'border border-transparent text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-100'
               }`}
             >
@@ -442,9 +362,9 @@ export default function Configuracoes() {
             <button
               type="button"
               onClick={() => setAbaAtiva('seguranca')}
-              className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-medium transition-all duration-300 whitespace-nowrap ${
+              className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-medium transition-all duration-200 whitespace-nowrap ${
                 abaAtiva === 'seguranca'
-                  ? 'border border-cyan-500/30 bg-cyan-500/10 text-cyan-200 shadow-[0_0_20px_rgba(34,211,238,0.14)]'
+                  ? 'border border-cyan-500/35 bg-cyan-500/15 text-cyan-200 shadow-[0_0_18px_rgba(34,211,238,0.14)]'
                   : 'border border-transparent text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-100'
               }`}
             >
@@ -452,9 +372,60 @@ export default function Configuracoes() {
               <span>Segurança</span>
             </button>
           </div>
+
+          <div className="flex items-center gap-2 self-end lg:self-auto shrink-0 px-1">
+            <button
+              type="button"
+              onClick={() => void carregarServidores()}
+              disabled={loading}
+              title="Recarregar servidores"
+              className="btn-enterprise-secondary !py-1.5"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 text-cyan-400 ${loading ? 'animate-spin' : ''}`} />
+              <span>Atualizar</span>
+            </button>
+
+            {abaAtiva === 'servidores' && (
+              <button
+                type="button"
+                onClick={() => setModalOpen(true)}
+                className="btn-enterprise-primary !py-1.5"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>Adicionar Servidor</span>
+              </button>
+            )}
+
+            {abaAtiva === 'api' && !apiKeyToken && (
+              <button
+                type="button"
+                onClick={() => void handleGerarToken()}
+                disabled={gerandoApiKey}
+                className="btn-enterprise-primary !py-1.5"
+              >
+                {gerandoApiKey ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="h-3.5 w-3.5" />
+                )}
+                <span>Gerar Token Único</span>
+              </button>
+            )}
+
+            {abaAtiva === 'api' && apiKeyToken && (
+              <button
+                type="button"
+                onClick={handleCopiarToken}
+                className="btn-enterprise-primary !py-1.5"
+              >
+                <Copy className="h-3.5 w-3.5" />
+                <span>Copiar Token</span>
+              </button>
+            )}
+          </div>
         </div>
 
-        <main className="flex-1 w-full max-w-[1600px] mx-auto p-6 lg:p-10 space-y-6">
+        <div className="flex-1 w-full space-y-6">
           {feedback && (
             <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 backdrop-blur-xl px-4 py-2.5 text-xs font-medium text-emerald-300">
               <CheckCircle2 className="h-4 w-4 shrink-0" />
@@ -1011,7 +982,7 @@ export default function Configuracoes() {
               </form>
             </section>
           )}
-        </main>
+        </div>
       </div>
 
       {/* Modal Glassmorphic: Adicionar Novo Servidor */}

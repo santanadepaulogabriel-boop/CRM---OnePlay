@@ -120,10 +120,10 @@ function formatHistoricoLabel(raw: unknown, idx: number): { label: string; sortK
 }
 
 const glassSurface =
-  'relative overflow-hidden rounded-2xl border border-white/5 bg-[#06080d]/60 backdrop-blur-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.4)]'
+  'glass-card relative overflow-hidden rounded-2xl'
 
 const kpiCardClass =
-  'group relative overflow-hidden rounded-2xl border border-white/5 bg-[#06080d]/60 backdrop-blur-2xl p-5 shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] transition-all duration-300 hover:-translate-y-1 hover:border-cyan-500/30 hover:shadow-[0_0_20px_rgba(34,211,238,0.2)]'
+  'glass-card neon-hover group relative flex h-full flex-col justify-between overflow-hidden rounded-2xl p-5'
 
 function MetricasSkeleton({ isMaster }: { isMaster: boolean }) {
   return (
@@ -162,7 +162,7 @@ function MetricasSkeleton({ isMaster }: { isMaster: boolean }) {
         </>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
         {[1, 2, 3, 4].map((i) => (
           <div
             key={i}
@@ -352,13 +352,15 @@ export default function DashboardMetricas() {
     const faturasLista = Array.isArray(faturas) ? faturas : []
 
     const ativos = clientesLista.filter((c) => {
+      if (norm(c?.[COL.estagio]) === 'lead') return false
       const st = norm(c?.Status ?? c?.[COL.status] ?? c?.status)
-      return st === 'ativo'
+      return st === 'ativo' || st === 'alerta' || st === 'alerta_vencimento'
     })
 
     const mrr = clientesLista.reduce((acc, c) => {
+      if (norm(c?.[COL.estagio]) === 'lead') return acc
       const st = norm(c?.Status ?? c?.[COL.status] ?? c?.status)
-      if (st === 'ativo') {
+      if (st === 'ativo' || st === 'alerta' || st === 'alerta_vencimento') {
         return acc + num(c?.valor_mensal ?? c?.[COL.valor])
       }
       return acc
@@ -646,19 +648,23 @@ export default function DashboardMetricas() {
         </div>
       )}
 
-      {/* Barra de Sincronização & Cache (15 min) */}
+      {/* Barra de Atualização Executiva */}
       <div className={`${glassSurface} flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-3 text-xs`}>
         <div className="flex items-center gap-2.5 flex-wrap">
           <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.9)]" />
           <span className="text-zinc-400">
-            Sincronização de dados:{' '}
+            Painel financeiro consolidado:{' '}
             <strong className="font-medium text-zinc-100 tabular-nums [font-variant-numeric:tabular-nums]">
-              {lastFetch ? `há ${minutosDesdeSync} min` : 'tempo real'}
+              {lastFetch
+                ? minutosDesdeSync === 0
+                  ? 'atualizado agora'
+                  : `atualizado há ${minutosDesdeSync} min`
+                : 'tempo real'}
             </strong>
           </span>
           <StatusBadge
-            variant={isCached ? 'teste' : 'ativo'}
-            label={isCached ? 'Cache Ativo (15m)' : 'Ao Vivo'}
+            variant="ativo"
+            label={isCached ? 'Consolidado' : 'Tempo Real'}
             showDot={false}
           />
         </div>
@@ -666,10 +672,10 @@ export default function DashboardMetricas() {
         <button
           type="button"
           onClick={() => void carregar(true)}
-          className="inline-flex items-center gap-1.5 self-start sm:self-auto rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-1.5 text-xs font-medium text-zinc-200 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-500/30 hover:bg-cyan-500/10 hover:text-cyan-200 hover:shadow-[0_0_20px_rgba(34,211,238,0.2)]"
+          className="inline-flex items-center gap-1.5 self-start sm:self-auto rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-1.5 text-xs font-medium text-zinc-200 transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-500/30 hover:bg-cyan-500/10 hover:text-cyan-200 hover:shadow-[0_0_20px_rgba(34,211,238,0.2)]"
         >
           <RefreshCw className="h-3.5 w-3.5 text-cyan-400" />
-          <span>Atualizar Agora</span>
+          <span>Atualizar Indicadores</span>
         </button>
       </div>
 
@@ -682,63 +688,92 @@ export default function DashboardMetricas() {
             <div className="flex items-center gap-2">
               <Crown className="h-4 w-4 text-amber-400" />
               <h2 className="text-sm font-semibold tracking-tight text-zinc-100">
-                Métricas Globais de SaaS
+                Indicadores Executivos de Receita &amp; Rede
               </h2>
             </div>
             <span className="text-xs text-zinc-400">
-              Consolidado em tempo real de toda a plataforma e rede de revendas
+              Performance comercial consolidada da operação direta e revendas parceiras
             </span>
           </div>
 
-          {/* 1. 3 KpiCards Globais de Destaque com Ambient Glows + Neon Hover */}
+          {/* 1. 3 KpiCards Globais de Destaque com Ambient Glows + Alinhamento Enterprise */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             <div className={kpiCardClass}>
-              <div className="pointer-events-none absolute -top-12 -right-12 h-36 w-36 rounded-full bg-radial from-cyan-500/10 to-transparent" />
-              <div className="relative flex items-center justify-between">
-                <span className="text-xs font-medium text-zinc-400">MRR Global</span>
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 shadow-[0_0_16px_rgba(52,211,153,0.18)]">
-                  <DollarSign className="h-4 w-4" />
+              <div className="pointer-events-none absolute -top-12 -right-12 h-36 w-36 rounded-full bg-radial from-emerald-500/10 to-transparent" />
+              <div className="relative z-10">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="min-w-0 text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-400">
+                    MRR Global
+                  </span>
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 shadow-[0_0_16px_rgba(52,211,153,0.14)]">
+                    <DollarSign className="h-4 w-4" />
+                  </div>
+                </div>
+                <div className="mt-3.5 flex min-h-[2.25rem] items-center">
+                  <span className="text-2xl xl:text-3xl font-bold leading-none tracking-tight text-zinc-50 font-mono whitespace-nowrap tabular-nums [font-variant-numeric:tabular-nums]">
+                    {brl.format(m.mrr)}
+                  </span>
                 </div>
               </div>
-              <div className="relative mt-3 text-3xl font-semibold tracking-tight text-zinc-100 font-mono tabular-nums [font-variant-numeric:tabular-nums]">
-                {brl.format(m.mrr)}
+              <div className="relative z-10 mt-4 flex items-center gap-2 border-t border-white/[0.06] pt-3">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400/80" />
+                <p className="text-xs leading-snug text-zinc-400">
+                  Receita recorrente ativa consolidada
+                </p>
               </div>
-              <p className="relative mt-1.5 text-xs text-zinc-400">
-                Receita Mensal Recorrente Total da plataforma
-              </p>
             </div>
 
             <div className={kpiCardClass}>
               <div className="pointer-events-none absolute -top-12 -right-12 h-36 w-36 rounded-full bg-radial from-cyan-500/10 to-transparent" />
-              <div className="relative flex items-center justify-between">
-                <span className="text-xs font-medium text-zinc-400">Total de Clientes Ativos</span>
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-cyan-500/20 bg-cyan-500/10 text-cyan-400 shadow-[0_0_16px_rgba(34,211,238,0.18)]">
-                  <Users className="h-4 w-4" />
+              <div className="relative z-10">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="min-w-0 text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-400">
+                    Assinantes Recorrentes
+                  </span>
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-cyan-500/20 bg-cyan-500/10 text-cyan-400 shadow-[0_0_16px_rgba(34,211,238,0.14)]">
+                    <Users className="h-4 w-4" />
+                  </div>
+                </div>
+                <div className="mt-3.5 flex min-h-[2.25rem] items-center">
+                  <span className="text-2xl xl:text-3xl font-bold leading-none tracking-tight text-zinc-50 font-mono whitespace-nowrap tabular-nums [font-variant-numeric:tabular-nums]">
+                    {m.ativos.toLocaleString('pt-BR')}
+                  </span>
                 </div>
               </div>
-              <div className="relative mt-3 text-3xl font-semibold tracking-tight text-zinc-100 font-mono tabular-nums [font-variant-numeric:tabular-nums]">
-                {m.ativos}
+              <div className="relative z-10 mt-4 flex items-center gap-2 border-t border-white/[0.06] pt-3">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-400/80" />
+                <p className="text-xs leading-snug text-zinc-400">
+                  Base ativa na operação direta e parceiros
+                </p>
               </div>
-              <p className="relative mt-1.5 text-xs text-zinc-400 tabular-nums">
-                Assinaturas ativas somando direta + parceiros ({clientes.length} registros totais)
-              </p>
             </div>
 
             <div className={kpiCardClass}>
-              <div className="pointer-events-none absolute -top-12 -right-12 h-36 w-36 rounded-full bg-radial from-cyan-500/10 to-transparent" />
-              <div className="relative flex items-center justify-between">
-                <span className="text-xs font-medium text-zinc-400">Créditos em Circulação</span>
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-amber-500/20 bg-amber-500/10 text-amber-400 shadow-[0_0_16px_rgba(251,191,36,0.18)]">
-                  <Coins className="h-4 w-4" />
+              <div className="pointer-events-none absolute -top-12 -right-12 h-36 w-36 rounded-full bg-radial from-amber-500/10 to-transparent" />
+              <div className="relative z-10">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="min-w-0 text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-400">
+                    Créditos em Circulação
+                  </span>
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-amber-500/20 bg-amber-500/10 text-amber-400 shadow-[0_0_16px_rgba(251,191,36,0.14)]">
+                    <Coins className="h-4 w-4" />
+                  </div>
+                </div>
+                <div className="mt-3.5 flex min-h-[2.25rem] items-baseline gap-2">
+                  <span className="text-2xl xl:text-3xl font-bold leading-none tracking-tight text-zinc-50 font-mono whitespace-nowrap tabular-nums [font-variant-numeric:tabular-nums]">
+                    {masterIntel.creditosEmCirculacao.toLocaleString('pt-BR')}
+                  </span>
+                  <span className="text-xs font-sans font-medium text-zinc-400 whitespace-nowrap">
+                    {masterIntel.creditosEmCirculacao === 1 ? 'crédito' : 'créditos'}
+                  </span>
                 </div>
               </div>
-              <div className="relative mt-3 text-3xl font-semibold tracking-tight text-zinc-100 font-mono tabular-nums [font-variant-numeric:tabular-nums]">
-                {masterIntel.creditosEmCirculacao}{' '}
-                <span className="text-sm font-sans font-normal text-zinc-400">créditos</span>
+              <div className="relative z-10 mt-4 flex items-center gap-2 border-t border-white/[0.06] pt-3">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400/80" />
+                <p className="text-xs leading-snug text-zinc-400">
+                  Disponível para emissão na rede parceira
+                </p>
               </div>
-              <p className="relative mt-1.5 text-xs text-zinc-400 tabular-nums">
-                Saldo disponível distribuído entre {masterIntel.totalRevendedores} revendedor(es)
-              </p>
             </div>
           </div>
 
@@ -956,69 +991,105 @@ export default function DashboardMetricas() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
           <div className={kpiCardClass}>
             <div className="pointer-events-none absolute -top-10 -right-10 h-28 w-28 rounded-full bg-radial from-cyan-500/10 to-transparent" />
-            <div className="relative flex items-center justify-between">
-              <span className="text-xs font-medium text-zinc-400">MRR Ativo</span>
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-500/20 bg-cyan-500/10 text-cyan-400">
-                <DollarSign className="h-4 w-4" />
+            <div className="relative z-10">
+              <div className="flex items-center justify-between gap-3">
+                <span className="min-w-0 text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-400">
+                  MRR Ativo
+                </span>
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-cyan-500/20 bg-cyan-500/10 text-cyan-400">
+                  <DollarSign className="h-4 w-4" />
+                </div>
+              </div>
+              <div className="mt-3.5 flex min-h-[2rem] items-center">
+                <span className="text-2xl font-bold leading-none tracking-tight text-zinc-50 font-mono whitespace-nowrap tabular-nums [font-variant-numeric:tabular-nums]">
+                  {brl.format(m.mrr)}
+                </span>
               </div>
             </div>
-            <div className="relative mt-3 text-2xl font-semibold tracking-tight text-zinc-100 font-mono tabular-nums [font-variant-numeric:tabular-nums]">
-              {brl.format(m.mrr)}
+            <div className="relative z-10 mt-4 flex items-center gap-2 border-t border-white/[0.06] pt-3">
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-400/80" />
+              <p className="text-xs leading-snug text-zinc-400">
+                Receita recorrente ativa da carteira
+              </p>
             </div>
-            <p className="relative mt-1 text-xs text-zinc-400 tabular-nums">
-              {m.ativos} assinante(s) ativo(s)
-            </p>
           </div>
 
           <div className={kpiCardClass}>
-            <div className="pointer-events-none absolute -top-10 -right-10 h-28 w-28 rounded-full bg-radial from-cyan-500/10 to-transparent" />
-            <div className="relative flex items-center justify-between">
-              <span className="text-xs font-medium text-zinc-400">Leads em Teste</span>
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-amber-500/20 bg-amber-500/10 text-amber-400">
-                <FlaskConical className="h-4 w-4" />
+            <div className="pointer-events-none absolute -top-10 -right-10 h-28 w-28 rounded-full bg-radial from-amber-500/10 to-transparent" />
+            <div className="relative z-10">
+              <div className="flex items-center justify-between gap-3">
+                <span className="min-w-0 text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-400">
+                  Leads em Demonstração
+                </span>
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-amber-500/20 bg-amber-500/10 text-amber-400">
+                  <FlaskConical className="h-4 w-4" />
+                </div>
+              </div>
+              <div className="mt-3.5 flex min-h-[2rem] items-center">
+                <span className="text-2xl font-bold leading-none tracking-tight text-zinc-50 font-mono whitespace-nowrap tabular-nums [font-variant-numeric:tabular-nums]">
+                  {m.emTeste.toLocaleString('pt-BR')}
+                </span>
               </div>
             </div>
-            <div className="relative mt-3 text-2xl font-semibold tracking-tight text-zinc-100 font-mono tabular-nums [font-variant-numeric:tabular-nums]">
-              {m.emTeste}
+            <div className="relative z-10 mt-4 flex items-center gap-2 border-t border-white/[0.06] pt-3">
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400/80" />
+              <p className="text-xs leading-snug text-zinc-400">
+                Acessos demonstrativos em negociação
+              </p>
             </div>
-            <p className="relative mt-1 text-xs text-zinc-400">
-              Testes ativos aguardando fechamento
-            </p>
           </div>
 
           <div className={kpiCardClass}>
-            <div className="pointer-events-none absolute -top-10 -right-10 h-28 w-28 rounded-full bg-radial from-cyan-500/10 to-transparent" />
-            <div className="relative flex items-center justify-between">
-              <span className="text-xs font-medium text-zinc-400">Taxa de Conversão</span>
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-400">
-                <Percent className="h-4 w-4" />
+            <div className="pointer-events-none absolute -top-10 -right-10 h-28 w-28 rounded-full bg-radial from-emerald-500/10 to-transparent" />
+            <div className="relative z-10">
+              <div className="flex items-center justify-between gap-3">
+                <span className="min-w-0 text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-400">
+                  Taxa de Conversão
+                </span>
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-400">
+                  <Percent className="h-4 w-4" />
+                </div>
+              </div>
+              <div className="mt-3.5 flex min-h-[2rem] items-center">
+                <span className="text-2xl font-bold leading-none tracking-tight text-zinc-50 font-mono whitespace-nowrap tabular-nums [font-variant-numeric:tabular-nums]">
+                  {m.conversao.toFixed(1)}%
+                </span>
               </div>
             </div>
-            <div className="relative mt-3 text-2xl font-semibold tracking-tight text-zinc-100 font-mono tabular-nums [font-variant-numeric:tabular-nums]">
-              {m.conversao.toFixed(1)}%
+            <div className="relative z-10 mt-4 flex items-center gap-2 border-t border-white/[0.06] pt-3">
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400/80" />
+              <p className="text-xs leading-snug text-zinc-400">
+                Aproveitamento comercial do funil ativo
+              </p>
             </div>
-            <p className="relative mt-1 text-xs text-zinc-400 tabular-nums">
-              Convertidos sobre {clientes.length} oportunidade(s)
-            </p>
           </div>
 
           <div className={kpiCardClass}>
-            <div className="pointer-events-none absolute -top-10 -right-10 h-28 w-28 rounded-full bg-radial from-cyan-500/10 to-transparent" />
-            <div className="relative flex items-center justify-between">
-              <span className="text-xs font-medium text-zinc-400">Receita em Risco</span>
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-red-500/20 bg-red-500/10 text-red-400">
-                <ShieldAlert className="h-4 w-4" />
+            <div className="pointer-events-none absolute -top-10 -right-10 h-28 w-28 rounded-full bg-radial from-red-500/10 to-transparent" />
+            <div className="relative z-10">
+              <div className="flex items-center justify-between gap-3">
+                <span className="min-w-0 text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-400">
+                  Receita a Recuperar
+                </span>
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-red-500/20 bg-red-500/10 text-red-400">
+                  <ShieldAlert className="h-4 w-4" />
+                </div>
+              </div>
+              <div className="mt-3.5 flex min-h-[2rem] items-center">
+                <span className="text-2xl font-bold leading-none tracking-tight text-zinc-50 font-mono whitespace-nowrap tabular-nums [font-variant-numeric:tabular-nums]">
+                  {brl.format(m.perdido)}
+                </span>
               </div>
             </div>
-            <div className="relative mt-3 text-2xl font-semibold tracking-tight text-zinc-100 font-mono tabular-nums [font-variant-numeric:tabular-nums]">
-              {brl.format(m.perdido)}
+            <div className="relative z-10 mt-4 flex items-center gap-2 border-t border-white/[0.06] pt-3">
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-400/80" />
+              <p className="text-xs leading-snug text-zinc-400">
+                Assinaturas expiradas em ciclo de retenção
+              </p>
             </div>
-            <p className="relative mt-1 text-xs text-zinc-400 tabular-nums">
-              {m.vencidos.length} assinatura(s) vencida(s)
-            </p>
           </div>
         </div>
 

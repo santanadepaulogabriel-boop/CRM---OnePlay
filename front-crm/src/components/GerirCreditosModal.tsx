@@ -6,11 +6,15 @@ import { getErrorMessage } from '../lib/errorHandler'
 import { useCrmStore } from '../stores/useCrmStore'
 import { isMasterUser } from '../lib/multiTenant'
 
-interface GerirCreditosModalProps {
-  agente: Agente | null
+export interface GerirCreditosModalProps {
+  agente?: Agente | null
   isOpen: boolean
   onClose: () => void
-  onSuccess: (novoSaldo: number, mensagem: string) => void
+  onSuccess?: (novoSaldo: number, mensagem: string) => void
+  revendedorNome?: string
+  revendedorEmail?: string
+  creditosAtuais?: number
+  onSalvar?: (quantidade: number, operacao: 'adicionar' | 'remover') => Promise<void> | void
 }
 
 export function GerirCreditosModal({
@@ -18,6 +22,10 @@ export function GerirCreditosModal({
   isOpen,
   onClose,
   onSuccess,
+  revendedorNome,
+  revendedorEmail,
+  creditosAtuais,
+  onSalvar,
 }: GerirCreditosModalProps) {
   const [quantidadeStr, setQuantidadeStr] = useState<string>('')
   const [loading, setLoading] = useState<boolean>(false)
@@ -25,9 +33,13 @@ export function GerirCreditosModal({
 
   const currentUser = useCrmStore((s) => s.user)
 
-  if (!isOpen || !agente || !isMasterUser(currentUser)) return null
+  const hasTarget = Boolean(agente || revendedorNome)
+  if (!isOpen || !hasTarget || !isMasterUser(currentUser)) return null
 
-  const saldoAtual = Number(agente.creditos ?? 0)
+  const nomeExibicao = agente?.nome ?? revendedorNome ?? 'Revendedor'
+  const emailExibicao = agente?.email ?? revendedorEmail ?? ''
+  const saldoAtual = Number(agente?.creditos ?? creditosAtuais ?? 0)
+
   const qtd = parseInt(quantidadeStr, 10)
   const qtdValida = !isNaN(qtd) && qtd > 0
 
@@ -35,7 +47,6 @@ export function GerirCreditosModal({
   const saldoAposRemocao = qtdValida ? Math.max(0, saldoAtual - qtd) : saldoAtual
 
   async function handleTransacao(tipo: 'adicionar' | 'remover') {
-    if (!agente) return
     if (!qtdValida) {
       setError('Informe uma quantidade inteira válida maior que zero.')
       return
@@ -48,20 +59,24 @@ export function GerirCreditosModal({
       const novoSaldo =
         tipo === 'adicionar' ? saldoAtual + qtd : Math.max(0, saldoAtual - qtd)
 
-      const { error: updErr } = await supabase
-        .from('agentes')
-        .update({ creditos: novoSaldo })
-        .eq('id', agente.id)
+      if (onSalvar) {
+        await onSalvar(qtd, tipo)
+      } else if (agente?.id) {
+        const { error: updErr } = await supabase
+          .from('agentes')
+          .update({ creditos: novoSaldo })
+          .eq('id', agente.id)
 
-      if (updErr) throw updErr
+        if (updErr) throw updErr
+      }
 
       const msg =
         tipo === 'adicionar'
-          ? `${qtd} crédito(s) adicionado(s) a ${agente.nome}. Novo saldo: ${novoSaldo}.`
-          : `${Math.min(qtd, saldoAtual)} crédito(s) removido(s) de ${agente.nome}. Novo saldo: ${novoSaldo}.`
+          ? `${qtd} crédito(s) adicionado(s) a ${nomeExibicao}. Novo saldo: ${novoSaldo}.`
+          : `${Math.min(qtd, saldoAtual)} crédito(s) removido(s) de ${nomeExibicao}. Novo saldo: ${novoSaldo}.`
 
       setQuantidadeStr('')
-      onSuccess(novoSaldo, msg)
+      onSuccess?.(novoSaldo, msg)
       onClose()
     } catch (err: unknown) {
       const msg = getErrorMessage(err)
@@ -81,10 +96,8 @@ export function GerirCreditosModal({
         }
       }}
     >
-      <div className="relative overflow-hidden w-full max-w-md rounded-2xl border border-white/5 bg-[#06080d]/60 backdrop-blur-2xl p-6 shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] text-zinc-100 animate-in zoom-in-95">
-        <div className="pointer-events-none absolute -top-14 -right-14 h-40 w-40 rounded-full bg-radial from-cyan-500/10 to-transparent" />
-
-        <div className="relative flex items-start justify-between pb-4 border-b border-white/5">
+      <div className="relative overflow-hidden w-full max-w-md rounded-2xl border border-white/10 bg-[#06080d]/90 backdrop-blur-2xl p-6 shadow-2xl shadow-black/80 text-zinc-100 animate-in zoom-in-95">
+        <div className="relative flex items-start justify-between pb-4 border-b border-white/10">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-cyan-500/20 bg-cyan-500/10 text-cyan-400 shadow-[0_0_16px_rgba(34,211,238,0.2)]">
               <Coins className="h-4 w-4" />
@@ -94,7 +107,8 @@ export function GerirCreditosModal({
                 Gerir Créditos
               </h2>
               <p className="text-xs text-zinc-400">
-                {agente.nome} · {agente.email}
+                {nomeExibicao}
+                {emailExibicao ? ` · ${emailExibicao}` : ''}
               </p>
             </div>
           </div>
@@ -115,7 +129,7 @@ export function GerirCreditosModal({
           </div>
         )}
 
-        <div className="relative mt-4 rounded-xl border border-white/5 bg-white/[0.03] p-4 flex items-center justify-between">
+        <div className="relative mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-4 flex items-center justify-between">
           <div>
             <span className="text-[11px] uppercase tracking-wider font-medium text-zinc-400">
               Saldo Atual
@@ -148,14 +162,14 @@ export function GerirCreditosModal({
                 setQuantidadeStr(e.target.value)
                 if (error) setError(null)
               }}
-              placeholder="Ex: 10"
+              placeholder="Ex: 12"
               className="w-full rounded-xl border border-white/10 bg-[#030509]/70 px-3.5 py-2 text-sm font-mono text-zinc-100 tabular-nums placeholder-zinc-600 outline-none transition focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/20"
             />
           </div>
 
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[11px] text-zinc-500 mr-1">Atalhos:</span>
-            {[5, 10, 25, 50, 100].map((valor) => (
+            <span className="text-[11px] text-zinc-500 mr-1">Pacotes rápidos:</span>
+            {[1, 3, 6, 12, 24].map((valor) => (
               <button
                 key={valor}
                 type="button"
@@ -164,7 +178,7 @@ export function GerirCreditosModal({
                   setQuantidadeStr(String(valor))
                   if (error) setError(null)
                 }}
-                className="rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1 text-xs font-mono font-medium text-zinc-300 tabular-nums transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-500/30 hover:text-cyan-300 hover:shadow-[0_0_20px_rgba(34,211,238,0.2)]"
+                className="rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1 text-xs font-mono font-medium text-zinc-300 tabular-nums transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-500/30 hover:text-cyan-300"
               >
                 +{valor}
               </button>
@@ -172,7 +186,7 @@ export function GerirCreditosModal({
           </div>
 
           {qtdValida && (
-            <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3 text-xs space-y-1">
+            <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-xs space-y-1">
               <div className="flex justify-between items-center">
                 <span className="text-zinc-400">Após adicionar (+{qtd}):</span>
                 <span className="font-mono font-semibold text-emerald-400 tabular-nums [font-variant-numeric:tabular-nums]">
@@ -189,12 +203,12 @@ export function GerirCreditosModal({
           )}
         </div>
 
-        <div className="relative mt-5 grid grid-cols-2 gap-3 pt-4 border-t border-white/5">
+        <div className="relative mt-5 grid grid-cols-2 gap-3 pt-4 border-t border-white/10">
           <button
             type="button"
             disabled={loading || !qtdValida || saldoAtual === 0}
             onClick={() => void handleTransacao('remover')}
-            className="flex items-center justify-center gap-1.5 rounded-xl border border-red-500/30 bg-red-500/10 py-2 px-3 text-xs font-medium text-red-400 transition-all duration-300 hover:-translate-y-1 hover:bg-red-500/20 hover:shadow-[0_0_20px_rgba(248,113,113,0.2)] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+            className="flex items-center justify-center gap-1.5 rounded-xl border border-red-500/30 bg-red-500/10 py-2 px-3 text-xs font-medium text-red-400 transition-all duration-300 hover:-translate-y-0.5 hover:bg-red-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {loading ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -208,7 +222,7 @@ export function GerirCreditosModal({
             type="button"
             disabled={loading || !qtdValida}
             onClick={() => void handleTransacao('adicionar')}
-            className="flex items-center justify-center gap-1.5 rounded-xl border border-cyan-500/30 bg-cyan-500/15 py-2 px-3 text-xs font-semibold text-cyan-200 transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/50 hover:bg-cyan-500/25 hover:text-white hover:shadow-[0_0_20px_rgba(34,211,238,0.2)] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+            className="flex items-center justify-center gap-1.5 rounded-xl border border-cyan-500/30 bg-cyan-500/15 py-2 px-3 text-xs font-semibold text-cyan-200 transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-400/50 hover:bg-cyan-500/25 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {loading ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />

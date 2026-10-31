@@ -22,7 +22,6 @@ import {
 import type { LucideIcon } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { Sidebar } from '../components/Sidebar'
 import { useCrmStore } from '../stores/useCrmStore'
 import {
   buildResellerOwnershipFields,
@@ -31,8 +30,6 @@ import {
   isUnauthorizedSupabaseError,
   updateClienteMultiTenant,
 } from '../lib/multiTenant'
-import { SmartBanner } from '../components/SmartBanner'
-import { SystemClock } from '../components/SystemClock'
 import { useToast } from '../contexts/ToastContext'
 import { getErrorMessage } from '../lib/errorHandler'
 import { useFeatureGating } from '../hooks/useFeatureGating'
@@ -592,15 +589,9 @@ export default function Funil() {
   }
 
   return (
-    <div className="relative flex min-h-screen bg-[#030509] text-zinc-100 font-sans selection:bg-cyan-500/30 selection:text-cyan-100">
-      <div className="pointer-events-none fixed -top-40 right-0 h-96 w-96 rounded-full bg-radial from-cyan-500/10 to-transparent" />
-
-      <Sidebar />
-
-      <div className="relative flex-1 min-w-0 pl-0 md:pl-64 flex flex-col min-h-screen">
-        <SmartBanner />
-
-        <header className="sticky top-0 z-30 border-b border-white/5 bg-[#06080d]/60 backdrop-blur-2xl">
+    <div className="relative flex flex-1 min-w-0 flex-col">
+      <div className="relative flex flex-1 min-w-0 flex-col">
+        <header className="sticky top-0 z-30 border-b border-white/5 bg-[#06080d]/75 backdrop-blur-2xl">
           <div className="w-full max-w-[1600px] mx-auto flex flex-col md:flex-row md:h-16 md:items-center justify-between gap-4 px-6 lg:px-10 py-3 md:py-0">
             <div className="flex items-center gap-3">
               <HamburgerButton />
@@ -660,10 +651,6 @@ export default function Funil() {
               >
                 <RotateCw className="h-3.5 w-3.5" />
               </button>
-
-              <div className="hidden xl:flex items-center pl-2">
-                <SystemClock />
-              </div>
             </div>
           </div>
         </header>

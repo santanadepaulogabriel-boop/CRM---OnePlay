@@ -1,36 +1,46 @@
-import { lazy, Suspense, useEffect, useRef, type ReactNode } from 'react'
-import { BrowserRouter, Navigate, Route, Routes, useNavigate } from 'react-router-dom'
+import { lazy, Suspense, useCallback, useEffect, useRef, type ReactNode } from 'react'
+import {
+  BrowserRouter,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from 'react-router-dom'
 import { Sparkles } from 'lucide-react'
 import { supabase } from './lib/supabase'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { ToastProvider, useToast } from './contexts/ToastContext'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { MainLayout, type CrmTabId } from './components/MainLayout'
+import { DashboardMetrics } from './components/DashboardMetrics'
+import { ClientesRenovacoes } from './components/ClientesRenovacoes'
+import { KanbanBoard } from './components/KanbanBoard'
+import { ListaRevendedores } from './components/ListaRevendedores'
+import { ModuleSettings } from './components/ModuleSettings'
 import { ModalAcessoRestrito } from './components/ModalAcessoRestrito'
 import { LojaCreditos } from './components/LojaCreditos'
+import { useCrmStore } from './stores/useCrmStore'
 import { getSafeHomeRoute, isMasterUser } from './lib/multiTenant'
 
 const Login = lazy(() => import('./pages/Login'))
 const EsqueciSenha = lazy(() => import('./pages/EsqueciSenha'))
 const RedefinirSenha = lazy(() => import('./pages/RedefinirSenha'))
 const Metricas = lazy(() => import('./pages/Metricas'))
-const Funil = lazy(() => import('./pages/Funil'))
 const PerfilCliente = lazy(() => import('./pages/PerfilCliente'))
 const Configuracoes = lazy(() => import('./pages/Configuracoes'))
-const GestaoEquipa = lazy(() => import('./pages/GestaoEquipa'))
-const Retencao = lazy(() => import('./pages/Retencao'))
 
 function Splash() {
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#030509] text-zinc-100">
-      <div className="pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2 h-72 w-72 rounded-full bg-radial from-cyan-500/15 to-transparent" />
-      <div className="relative flex flex-col items-center rounded-2xl border border-white/5 bg-[#06080d]/60 px-8 py-7 backdrop-blur-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.4)]">
-        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-cyan-500/20 bg-cyan-500/10 text-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.2)] animate-pulse">
+    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-cinematic text-zinc-100">
+      <div className="glass-card relative flex flex-col items-center rounded-2xl px-8 py-7">
+        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-cyan-500/25 bg-cyan-500/10 text-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.22)] animate-pulse">
           <Sparkles className="h-5 w-5" />
         </div>
         <div className="space-y-2 text-center">
           <div className="h-2.5 w-36 rounded-full bg-white/10 animate-pulse mx-auto" />
-          <span className="block text-[11px] font-medium tracking-widest text-zinc-400 uppercase">
-            Sincronizando OnePlay CRM
+          <span className="block text-[11px] font-medium tracking-widest text-zinc-300 uppercase">
+            Carregando OnePlay Enterprise
           </span>
         </div>
       </div>
@@ -38,10 +48,6 @@ function Splash() {
   )
 }
 
-/**
- * Redireciona imediatamente o utilizador para sua página inicial segura
- * disparando um único toast.warning limpo, sem tela em branco ou quebra de layout.
- */
 function UnauthorizedRedirect({
   to,
   message,
@@ -70,10 +76,6 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
   return <>{children}</>
 }
 
-/**
- * Guard estrito para rotas exclusivas do Master ('Gestão de Revendas',
- * 'Configurações Globais de API' e 'Inteligência & Métricas').
- */
 function MasterRoute({
   children,
   moduleName,
@@ -97,17 +99,115 @@ function MasterRoute({
   return <>{children}</>
 }
 
+const TAB_TO_ROUTE: Record<CrmTabId, string> = {
+  metrics: '/metricas',
+  clients: '/retencao',
+  kanban: '/funil',
+  resellers: '/revendas',
+  settings: '/configuracoes',
+}
+
+function resolveCurrentTab(pathname: string, isMaster: boolean): CrmTabId {
+  if (pathname.startsWith('/metricas')) return isMaster ? 'metrics' : 'clients'
+  if (pathname.startsWith('/retencao') || pathname.startsWith('/cliente/')) return 'clients'
+  if (pathname.startsWith('/funil')) return 'kanban'
+  if (pathname.startsWith('/revendas') || pathname.startsWith('/equipe')) {
+    return isMaster ? 'resellers' : 'clients'
+  }
+  if (pathname.startsWith('/configuracoes')) {
+    return isMaster ? 'settings' : 'clients'
+  }
+  return isMaster ? 'metrics' : 'clients'
+}
+
 /**
- * Rota raiz inteligente:
- * - Master: abre Inteligência & Métricas
- * - Revendedor ('reseller'): encaminha diretamente para o painel operacional (/retencao)
+ * Shell Autenticado Unificado com Switch de Abas (`currentTab`) dentro do `MainLayout`:
+ * Garante que todas as abas (`metrics`, `clients`, `kanban`, `resellers`, `settings`)
+ * renderizem os respetivos componentes (`DashboardMetrics`, `ClientesRenovacoes`,
+ * `KanbanBoard`, `ListaRevendedores`, `Configuracoes` + `ModuleSettings`) sem nunca
+ * retornar `null`, `undefined` ou ecrã vazio.
  */
+function AuthenticatedWorkspace({ customChild }: { customChild?: ReactNode }) {
+  const { usuario, logout } = useAuth()
+  const toast = useToast()
+  const creditosStore = useCrmStore((s) => s.creditos)
+  const location = useLocation()
+  const navigate = useNavigate()
+
+  const isMaster = isMasterUser(usuario)
+  const currentTab: CrmTabId = resolveCurrentTab(location.pathname, isMaster)
+
+  const handleTabChange = useCallback(
+    (tab: CrmTabId) => {
+      if (
+        !isMaster &&
+        (tab === 'metrics' || tab === 'resellers' || tab === 'settings')
+      ) {
+        toast.warning(
+          'Este módulo é exclusivo da conta Master.',
+          'Acesso Restrito'
+        )
+        navigate('/retencao', { replace: true })
+        return
+      }
+      const nextPath = TAB_TO_ROUTE[tab] ?? (isMaster ? '/metricas' : '/retencao')
+      if (location.pathname !== nextPath) {
+        navigate(nextPath)
+      }
+    },
+    [isMaster, location.pathname, navigate, toast]
+  )
+
+  const saldoCreditos =
+    typeof creditosStore === 'number' ? creditosStore : Number(usuario?.creditos ?? 0)
+
+  const renderActiveTab = (tab: CrmTabId): ReactNode => {
+    switch (tab) {
+      case 'metrics':
+        return <Metricas topSlot={<DashboardMetrics />} />
+      case 'clients':
+        return <ClientesRenovacoes />
+      case 'kanban':
+        return <KanbanBoard />
+      case 'resellers':
+        return <ListaRevendedores />
+      case 'settings':
+        return (
+          <div className="flex flex-1 flex-col min-w-0">
+            <Configuracoes />
+            <ModuleSettings />
+          </div>
+        )
+      default:
+        return isMaster ? (
+          <Metricas topSlot={<DashboardMetrics />} />
+        ) : (
+          <ClientesRenovacoes />
+        )
+    }
+  }
+
+  return (
+    <MainLayout
+      currentTab={currentTab}
+      onTabChange={handleTabChange}
+      userRole={isMaster ? 'master' : 'rev'}
+      userName={usuario?.nome || 'Operador OnePlay'}
+      userEmail={usuario?.email || 'operador@oneplay.com'}
+      userCredits={isMaster ? 'Ilimitado' : saldoCreditos}
+      onLogout={() => void logout()}
+    >
+      {customChild ?? renderActiveTab(currentTab)}
+    </MainLayout>
+  )
+}
+
 function HomeRoute() {
   const { usuario, loading } = useAuth()
   if (loading) return <Splash />
   if (!usuario) return <Navigate to="/login" replace />
   if (usuario.precisa_trocar_senha) return <Navigate to="/redefinir-senha" replace />
-  if (isMasterUser(usuario)) return <Metricas />
+  if (isMasterUser(usuario)) return <AuthenticatedWorkspace />
   return <Navigate to={getSafeHomeRoute(usuario)} replace />
 }
 
@@ -167,6 +267,7 @@ function AppRoutes() {
       <ErrorBoundary>
         <Suspense fallback={<Splash />}>
           <Routes>
+            {/* Rotas Públicas de Autenticação */}
             <Route
               path="/login"
               element={
@@ -188,12 +289,12 @@ function AppRoutes() {
             {/* Raiz dinâmica conforme perfil autenticado */}
             <Route path="/" element={<HomeRoute />} />
 
-            {/* Módulos Exclusivos Master */}
+            {/* Rotas Exclusivas Master envolvidas pelo MainLayout + Switch currentTab */}
             <Route
               path="/metricas"
               element={
                 <MasterRoute moduleName="Inteligência & Métricas">
-                  <Metricas />
+                  <AuthenticatedWorkspace />
                 </MasterRoute>
               }
             />
@@ -201,7 +302,7 @@ function AppRoutes() {
               path="/revendas"
               element={
                 <MasterRoute moduleName="Gestão de Revendas">
-                  <GestaoEquipa />
+                  <AuthenticatedWorkspace />
                 </MasterRoute>
               }
             />
@@ -209,7 +310,7 @@ function AppRoutes() {
               path="/equipe"
               element={
                 <MasterRoute moduleName="Gestão de Revendas">
-                  <GestaoEquipa />
+                  <AuthenticatedWorkspace />
                 </MasterRoute>
               }
             />
@@ -217,17 +318,17 @@ function AppRoutes() {
               path="/configuracoes"
               element={
                 <MasterRoute moduleName="Configurações Globais de API">
-                  <Configuracoes />
+                  <AuthenticatedWorkspace />
                 </MasterRoute>
               }
             />
 
-            {/* Módulos Operacionais Isolados por Parceiro */}
+            {/* Rotas Operacionais Protegidas envolvidas pelo MainLayout + Switch currentTab */}
             <Route
               path="/retencao"
               element={
                 <ProtectedRoute>
-                  <Retencao />
+                  <AuthenticatedWorkspace />
                 </ProtectedRoute>
               }
             />
@@ -235,7 +336,7 @@ function AppRoutes() {
               path="/funil"
               element={
                 <ProtectedRoute>
-                  <Funil />
+                  <AuthenticatedWorkspace />
                 </ProtectedRoute>
               }
             />
@@ -243,7 +344,7 @@ function AppRoutes() {
               path="/cliente/:id"
               element={
                 <ProtectedRoute>
-                  <PerfilCliente />
+                  <AuthenticatedWorkspace customChild={<PerfilCliente />} />
                 </ProtectedRoute>
               }
             />

@@ -6,10 +6,12 @@ export default {
     extend: {
       fontFamily: {
         sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
-        mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+        mono: ['Roboto Mono', 'JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
       },
       backgroundImage: {
         radial: 'radial-gradient(var(--tw-gradient-stops))',
+        'cinema-neon':
+          "linear-gradient(135deg, rgba(3, 5, 11, 0.87) 0%, rgba(6, 9, 19, 0.79) 48%, rgba(4, 6, 13, 0.88) 100%), url('/bg-cinema-neon.png')",
       },
       keyframes: {
         'enter-fade': {
